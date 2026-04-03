@@ -410,3 +410,709 @@ export default function SettingsPage() {
             </div>
           </div>
         );
+      case 'fleet':
+        return (
+          <div className='space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5'>
+            <div className='flex flex-col gap-3'>
+              <p className='text-xs font-semibold uppercase tracking-[0.4em] text-slate-400'>Fleet Settings</p>
+              <h2 className='text-2xl font-bold text-slate-900'>Default vehicle behavior</h2>
+            </div>
+
+            <div className='grid gap-4 md:grid-cols-2'>
+              <div className='space-y-2'>
+                <p className='text-sm font-medium text-slate-600'>Default vehicle types</p>
+                <div className='flex flex-wrap gap-3'>
+                  {['Truck', 'Bus', 'Car', 'Van'].map((type) => (
+                    <button
+                      key={type}
+                      type='button'
+                      onClick={() => toggleArrayValue('fleet', 'defaultVehicleTypes', type)}
+                      className={`rounded-full border px-4 py-2 text-sm transition ${
+                        settings.fleet.defaultVehicleTypes.includes(type)
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                          : 'border-slate-200 bg-white text-slate-500'
+                      }`}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <label className='flex flex-col gap-2 text-sm font-medium text-slate-600'>
+                Fuel unit
+                <select
+                  value={settings.fleet.fuelUnit}
+                  onChange={(event) => handleFieldChange('fleet', 'fuelUnit', event.target.value)}
+                  className='rounded-2xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none'
+                >
+                  <option value='Liters'>Liters</option>
+                  <option value='Gallons'>Gallons</option>
+                </select>
+              </label>
+
+              <label className='flex flex-col gap-2 text-sm font-medium text-slate-600'>
+                Maintenance reminder interval (km)
+                <input
+                  type='number'
+                  min={1000}
+                  value={settings.fleet.maintenanceInterval}
+                  onChange={(event) =>
+                    handleFieldChange('fleet', 'maintenanceInterval', Number(event.target.value))
+                  }
+                  className='rounded-2xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none'
+                />
+              </label>
+
+              <label className='flex flex-col gap-2 text-sm font-medium text-slate-600'>
+                Vehicle statuses
+                <div className='flex flex-wrap gap-3'>
+                  {['Available', 'In Use', 'Maintenance'].map((status) => (
+                    <button
+                      key={status}
+                      type='button'
+                      onClick={() => toggleArrayValue('fleet', 'vehicleStatus', status)}
+                      className={`rounded-full border px-4 py-2 text-sm transition ${
+                        settings.fleet.vehicleStatus.includes(status)
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                          : 'border-slate-200 bg-white text-slate-500'
+                      }`}
+                    >
+                      {status}
+                    </button>
+                  ))}
+                </div>
+              </label>
+            </div>
+
+            <div className='flex items-center justify-between'>
+              <span className='text-sm text-slate-500'>Fuel & maintenance controls apply to every route.</span>
+              <button
+                type='button'
+                onClick={() => handleSaveSection('fleet')}
+                className='rounded-2xl border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400'
+              >
+                Save fleet rules
+              </button>
+            </div>
+          </div>
+        );
+      case 'driver':
+        return (
+          <div className='space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5'>
+            <div className='flex flex-col gap-3'>
+              <p className='text-xs font-semibold uppercase tracking-[0.4em] text-slate-400'>Driver Settings</p>
+              <h2 className='text-2xl font-bold text-slate-900'>Roles, permissions & alerts</h2>
+            </div>
+
+            <div className='grid gap-4 md:grid-cols-2'>
+              <label className='flex flex-col gap-2 text-sm font-medium text-slate-600'>
+                Driver roles
+                <div className='flex flex-wrap gap-3'>
+                  {['Driver', 'Dispatcher', 'Manager'].map((role) => (
+                    <button
+                      key={role}
+                      type='button'
+                      onClick={() => toggleArrayValue('driver', 'roles', role)}
+                      className={`rounded-full border px-4 py-2 text-sm transition ${
+                        settings.driver.roles.includes(role)
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                          : 'border-slate-200 bg-white text-slate-500'
+                      }`}
+                    >
+                      {role}
+                    </button>
+                  ))}
+                </div>
+              </label>
+
+              <label className='flex flex-col gap-2 text-sm font-medium text-slate-600'>
+                License expiration alert (days)
+                <input
+                  type='number'
+                  min={7}
+                  value={settings.driver.licenseAlertDays}
+                  onChange={(event) =>
+                    handleFieldChange('driver', 'licenseAlertDays', Number(event.target.value))
+                  }
+                  className='rounded-2xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none'
+                />
+              </label>
+
+              <label className='flex flex-col gap-2 text-sm font-medium text-slate-600'>
+                Default working hours
+                <input
+                  type='text'
+                  value={settings.driver.workingHours}
+                  onChange={(event) => handleFieldChange('driver', 'workingHours', event.target.value)}
+                  className='rounded-2xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none'
+                />
+              </label>
+
+              <label className='flex flex-col gap-2 text-sm font-medium text-slate-600'>
+                Driver status
+                <select
+                  value={settings.driver.status}
+                  onChange={(event) => handleFieldChange('driver', 'status', event.target.value)}
+                  className='rounded-2xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none'
+                >
+                  <option value='Active'>Active</option>
+                  <option value='Suspended'>Suspended</option>
+                </select>
+              </label>
+            </div>
+
+            <div className='flex items-center justify-between'>
+              <span className='text-sm text-slate-500'>Permissions and alerts move with every fleet shift.</span>
+              <button
+                type='button'
+                onClick={() => handleSaveSection('driver')}
+                className='rounded-2xl border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400'
+              >
+                Save driver rules
+              </button>
+            </div>
+          </div>
+        );
+      case 'gps':
+        return (
+          <div className='space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5'>
+            <div className='flex flex-col gap-3'>
+              <p className='text-xs font-semibold uppercase tracking-[0.4em] text-slate-400'>GPS & Tracking</p>
+              <h2 className='text-2xl font-bold text-slate-900'>Real-time positioning</h2>
+            </div>
+
+            <div className='grid gap-4 md:grid-cols-2'>
+              <div className='flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3'>
+                <div>
+                  <p className='text-sm font-semibold text-slate-900'>GPS tracking</p>
+                  <p className='text-xs text-slate-500'>Enable mobile devices to push coordinates.</p>
+                </div>
+                <ToggleSwitch
+                  checked={settings.gps.trackingEnabled}
+                  onToggle={(value) => handleFieldChange('gps', 'trackingEnabled', value)}
+                />
+              </div>
+
+              <label className='flex flex-col gap-2 text-sm font-medium text-slate-600'>
+                Tracking interval (seconds)
+                <select
+                  value={settings.gps.trackingInterval}
+                  onChange={(event) =>
+                    handleFieldChange('gps', 'trackingInterval', Number(event.target.value))
+                  }
+                  className='rounded-2xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none'
+                >
+                  {[5, 10, 30, 60].map((interval) => (
+                    <option key={interval} value={interval}>
+                      {interval} seconds
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className='flex flex-col gap-2 text-sm font-medium text-slate-600'>
+                Map provider
+                <div className='flex gap-3'>
+                  {[
+                    { value: 'google', label: 'Google Maps' },
+                    { value: 'mapbox', label: 'Mapbox' }
+                  ].map((provider) => (
+                    <button
+                      key={provider.value}
+                      type='button'
+                      onClick={() => handleFieldChange('gps', 'mapProvider', provider.value)}
+                      className={`rounded-2xl border px-4 py-2 text-sm transition ${
+                        settings.gps.mapProvider === provider.value
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                          : 'border-slate-200 bg-white text-slate-500'
+                      }`}
+                    >
+                      {provider.label}
+                    </button>
+                  ))}
+                </div>
+              </label>
+
+              <div className='flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3'>
+                <div>
+                  <p className='text-sm font-semibold text-slate-900'>Route history</p>
+                  <p className='text-xs text-slate-500'>Store past coordinates for replay.</p>
+                </div>
+                <ToggleSwitch
+                  checked={settings.gps.routeHistory}
+                  onToggle={(value) => handleFieldChange('gps', 'routeHistory', value)}
+                />
+              </div>
+
+              <label className='flex flex-col gap-2 text-sm font-medium text-slate-600'>
+                Accuracy level
+                <div className='flex gap-3'>
+                  {['High', 'Medium', 'Low'].map((level) => (
+                    <button
+                      key={level}
+                      type='button'
+                      onClick={() => handleFieldChange('gps', 'accuracy', level)}
+                      className={`rounded-full border px-4 py-2 text-sm transition ${
+                        settings.gps.accuracy === level
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                          : 'border-slate-200 bg-white text-slate-500'
+                      }`}
+                    >
+                      {level}
+                    </button>
+                  ))}
+                </div>
+              </label>
+            </div>
+
+            <div className='flex items-center justify-between'>
+              <span className='text-sm text-slate-500'>Changes sync over WebSockets to the dashboard.</span>
+              <button
+                type='button'
+                onClick={() => handleSaveSection('gps')}
+                className='rounded-2xl border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400'
+              >
+                Save GPS settings
+              </button>
+            </div>
+          </div>
+        );
+      case 'notifications':
+        return (
+          <div className='space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5'>
+            <div className='flex flex-col gap-3'>
+              <p className='text-xs font-semibold uppercase tracking-[0.4em] text-slate-400'>Notification Settings</p>
+              <h2 className='text-2xl font-bold text-slate-900'>Alerts & channels</h2>
+            </div>
+
+            <div className='grid gap-4 md:grid-cols-2'>
+              <div className='flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3'>
+                <div>
+                  <p className='text-sm font-semibold text-slate-900'>Enable alerts</p>
+                  <p className='text-xs text-slate-500'>Master toggle for all alert types.</p>
+                </div>
+                <ToggleSwitch
+                  checked={settings.notifications.notificationsEnabled}
+                  onToggle={(value) => handleFieldChange('notifications', 'notificationsEnabled', value)}
+                />
+              </div>
+
+              <label className='flex flex-col gap-2 text-sm font-medium text-slate-600'>
+                Default speed threshold (km/h)
+                <input
+                  type='number'
+                  min={40}
+                  value={settings.notifications.speedThreshold}
+                  onChange={(event) =>
+                    handleFieldChange('notifications', 'speedThreshold', Number(event.target.value))
+                  }
+                  className='rounded-2xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none'
+                />
+              </label>
+
+              <div className='space-y-2'>
+                <p className='text-sm font-medium text-slate-600'>Alert types</p>
+                <div className='flex flex-wrap gap-3'>
+                  {['Speed', 'Route', 'Geofence', 'Inactivity'].map((type) => (
+                    <button
+                      key={type}
+                      type='button'
+                      onClick={() => toggleArrayValue('notifications', 'alertTypes', type)}
+                      className={`rounded-full border px-4 py-2 text-sm transition ${
+                        settings.notifications.alertTypes.includes(type)
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                          : 'border-slate-200 bg-white text-slate-500'
+                      }`}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className='space-y-2'>
+                <p className='text-sm font-medium text-slate-600'>Notification channels</p>
+                <div className='flex flex-wrap gap-3'>
+                  {['In-app', 'Email', 'SMS'].map((channel) => (
+                    <button
+                      key={channel}
+                      type='button'
+                      onClick={() => toggleArrayValue('notifications', 'channels', channel)}
+                      className={`rounded-full border px-4 py-2 text-sm transition ${
+                        settings.notifications.channels.includes(channel)
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                          : 'border-slate-200 bg-white text-slate-500'
+                      }`}
+                    >
+                      {channel}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className='grid gap-4 md:grid-cols-2'>
+              <div>
+                <p className='text-sm font-semibold text-slate-900'>Live alert preview</p>
+                <div className='mt-3 space-y-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-600'>
+                  {notificationHistory.map((notification) => (
+                    <div key={notification.id} className='flex items-start justify-between'>
+                      <div>
+                        <p className='text-sm font-semibold text-slate-900'>{notification.type}</p>
+                        <p>{notification.message}</p>
+                        <p className='text-xs text-slate-500'>{notification.timestamp}</p>
+                      </div>
+                      <span className='text-[0.7em] uppercase tracking-[0.3em] text-slate-400'>
+                        {notification.channel}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className='rounded-2xl border border-slate-100 bg-slate-50 p-4'>
+                <p className='text-sm font-semibold text-slate-900'>Per-vehicle alert toggles</p>
+                <div className='mt-3 space-y-2'>
+                  {vehicles.map((vehicle) => (
+                    <div key={vehicle.id} className='flex items-center justify-between'>
+                      <div>
+                        <p className='text-sm font-semibold text-slate-900'>{vehicle.name}</p>
+                        <p className='text-xs text-slate-500'>Toggle notifications for this vehicle.</p>
+                      </div>
+                      <button
+                        type='button'
+                        onClick={() => toggleVehicleAlerts(vehicle.id)}
+                        className={`rounded-full px-4 py-1 text-xs font-semibold transition ${
+                          vehicle.alertsEnabled
+                            ? 'bg-emerald-500 text-white'
+                            : 'border border-slate-200 bg-white text-slate-500'
+                        }`}
+                      >
+                        {vehicle.alertsEnabled ? 'Alerts ON' : 'Alerts OFF'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className='flex items-center justify-between'>
+              <span className='text-sm text-slate-500'>Notifications also reach the driver mobile app instantly.</span>
+              <button
+                type='button'
+                onClick={() => handleSaveSection('notifications')}
+                className='rounded-2xl border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400'
+              >
+                Save notification rules
+              </button>
+            </div>
+          </div>
+      case 'security':
+        return (
+          <div className='space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5'>
+            <div className='flex flex-col gap-3'>
+              <p className='text-xs font-semibold uppercase tracking-[0.4em] text-slate-400'>Security Settings</p>
+              <h2 className='text-2xl font-bold text-slate-900'>Access control & policies</h2>
+            </div>
+
+            <div className='grid gap-4 md:grid-cols-2'>
+              <label className='flex flex-col gap-2 text-sm font-medium text-slate-600'>
+                Change password
+                <input
+                  type='password'
+                  value={settings.security.password}
+                  onChange={(event) => handleFieldChange('security', 'password', event.target.value)}
+                  placeholder='••••••••'
+                  className='rounded-2xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none'
+                />
+              </label>
+
+              <div className='flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3'>
+                <div>
+                  <p className='text-sm font-semibold text-slate-900'>Two-factor authentication</p>
+                  <p className='text-xs text-slate-500'>Secure admin logins with a second factor.</p>
+                </div>
+                <ToggleSwitch
+                  checked={settings.security.twoFactor}
+                  onToggle={(value) => handleFieldChange('security', 'twoFactor', value)}
+                />
+              </div>
+
+              <label className='flex flex-col gap-2 text-sm font-medium text-slate-600'>
+                Session timeout (minutes)
+                <select
+                  value={settings.security.sessionTimeout}
+                  onChange={(event) =>
+                    handleFieldChange('security', 'sessionTimeout', Number(event.target.value))
+                  }
+                  className='rounded-2xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none'
+                >
+                  {[15, 30, 60, 120].map((timeout) => (
+                    <option key={timeout} value={timeout}>
+                      {timeout} minutes
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className='space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4'>
+                <p className='text-sm font-semibold text-slate-900'>Recent login activity</p>
+                <ul className='space-y-1 text-xs text-slate-600'>
+                  <li>Today · 08:12 — Admin dashboard (41.89.76.30)</li>
+                  <li>Yesterday · 21:59 — Driver portal (41.89.76.49)</li>
+                  <li>Yesterday · 18:44 — API session refresh (41.89.76.23)</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className='flex items-center justify-between'>
+              <span className='text-sm text-slate-500'>Security changes sync immediately to the Identity Provider.</span>
+              <button
+                type='button'
+                onClick={() => handleSaveSection('security')}
+                className='rounded-2xl border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400'
+              >
+                Save security preferences
+              </button>
+            </div>
+          </div>
+      case 'users':
+        return (
+          <div className='space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5'>
+            <div className='flex flex-col gap-3'>
+              <p className='text-xs font-semibold uppercase tracking-[0.4em] text-slate-400'>User Management</p>
+              <h2 className='text-2xl font-bold text-slate-900'>Roles, permissions & lifecycle</h2>
+            </div>
+
+            <div className='space-y-4'>
+              {users.map((user) => (
+                <div
+                  key={user.id}
+                  className='rounded-2xl border border-slate-100 bg-slate-50 p-4 shadow-inner shadow-slate-100'
+                >
+                  <div className='flex flex-wrap items-center justify-between gap-3'>
+                    <div>
+                      <p className='text-sm font-semibold text-slate-900'>{user.name}</p>
+                      <p className='text-xs text-slate-500'>Role: {user.role}</p>
+                    </div>
+                    <div className='flex items-center gap-2'>
+                      <select
+                        value={user.role}
+                        onChange={(event) => handleUserRoleChange(user.id, event.target.value)}
+                        className='rounded-2xl border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600'
+                      >
+                        {['Admin', 'Manager', 'Driver'].map((role) => (
+                          <option key={role} value={role}>
+                            {role}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type='button'
+                        onClick={() => toggleUserStatus(user.id)}
+                        className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                          user.status === 'Active'
+                            ? 'bg-emerald-500 text-white'
+                            : 'border border-rose-300 bg-rose-50 text-rose-600'
+                        }`}
+                      >
+                        {user.status}
+                      </button>
+                      <button
+                        type='button'
+                        onClick={() => handleDeleteUser(user.id)}
+                        className='text-xs font-semibold text-rose-500 underline decoration-dashed underline-offset-2'
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                  <div className='mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-600'>
+                    {Object.entries(user.permissions).map(([permission, value]) => (
+                      <button
+                        key={permission}
+                        type='button'
+                        onClick={() => toggleUserPermission(user.id, permission)}
+                        className={`rounded-full border px-3 py-1 transition ${
+                          value
+                            ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                            : 'border-slate-200 bg-white text-slate-500'
+                        }`}
+                      >
+                        {permission} {value ? 'On' : 'Off'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className='flex items-center justify-between'>
+              <button
+                type='button'
+                onClick={handleAddUser}
+                className='rounded-2xl border border-emerald-500 px-5 py-2 text-sm font-semibold text-emerald-600 transition hover:bg-emerald-50'
+              >
+                Add user
+              </button>
+              <div className='flex items-center gap-2 text-sm text-slate-500'>
+                <Shield size={16} />
+                Audit logs available for every profile change.
+              </div>
+            </div>
+          </div>
+      case 'ui':
+        return (
+          <div className='space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5'>
+            <div className='flex flex-col gap-3'>
+              <p className='text-xs font-semibold uppercase tracking-[0.4em] text-slate-400'>UI Preferences</p>
+              <h2 className='text-2xl font-bold text-slate-900'>Theme, layout & language</h2>
+            </div>
+
+            <div className='grid gap-4 md:grid-cols-2'>
+              <div className='flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3'>
+                <div>
+                  <p className='text-sm font-semibold text-slate-900'>Dark mode</p>
+                  <p className='text-xs text-slate-500'>Drivers see dashboards optimized for night shifts.</p>
+                </div>
+                <ToggleSwitch
+                  checked={settings.ui.themeMode === 'dark'}
+                  onToggle={(value) =>
+                    handleFieldChange('ui', 'themeMode', value ? 'dark' : 'light')
+                  }
+                />
+              </div>
+
+              <label className='flex flex-col gap-2 text-sm font-medium text-slate-600'>
+                Dashboard layout
+                <select
+                  value={settings.ui.layout}
+                  onChange={(event) => handleFieldChange('ui', 'layout', event.target.value)}
+                  className='rounded-2xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none'
+                >
+                  <option value='default'>Default</option>
+                  <option value='compact'>Compact</option>
+                  <option value='grid'>Grid</option>
+                </select>
+              </label>
+
+              <label className='flex flex-col gap-2 text-sm font-medium text-slate-600'>
+                Interface language
+                <select
+                  value={settings.ui.language}
+                  onChange={(event) => handleFieldChange('ui', 'language', event.target.value)}
+                  className='rounded-2xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none'
+                >
+                  <option value='English'>English</option>
+                  <option value='Arabic'>Arabic</option>
+                  <option value='French'>French</option>
+                </select>
+              </label>
+            </div>
+
+            <div className='flex items-center justify-between'>
+              <span className='text-sm text-slate-500'>Switch between desktop and tablet layouts on the fly.</span>
+              <button
+                type='button'
+                onClick={() => handleSaveSection('ui')}
+                className='rounded-2xl border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400'
+              >
+                Save UI preferences
+              </button>
+            </div>
+          </div>
+      case 'backup':
+        return (
+          <div className='space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5'>
+            <div className='flex flex-col gap-3'>
+              <p className='text-xs font-semibold uppercase tracking-[0.4em] text-slate-400'>Backup & System</p>
+              <h2 className='text-2xl font-bold text-slate-900'>Data preservation & exports</h2>
+            </div>
+
+            <div className='grid gap-4 md:grid-cols-2'>
+              <label className='flex flex-col gap-2 text-sm font-medium text-slate-600'>
+                Backup mode
+                <div className='flex gap-3'>
+                  {['manual', 'auto'].map((mode) => (
+                    <button
+                      key={mode}
+                      type='button'
+                      onClick={() => handleFieldChange('backup', 'backupMode', mode)}
+                      className={`rounded-full border px-4 py-2 text-sm transition ${
+                        settings.backup.backupMode === mode
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                          : 'border-slate-200 bg-white text-slate-500'
+                      }`}
+                    >
+                      {mode === 'auto' ? 'Auto' : 'Manual'}
+                    </button>
+                  ))}
+                </div>
+              </label>
+
+              <label className='flex flex-col gap-2 text-sm font-medium text-slate-600'>
+                Export format
+                <select
+                  value={settings.backup.exportFormat}
+                  onChange={(event) => handleFieldChange('backup', 'exportFormat', event.target.value)}
+                  className='rounded-2xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none'
+                >
+                  <option value='CSV'>CSV</option>
+                  <option value='Excel'>Excel</option>
+                  <option value='JSON'>JSON</option>
+                </select>
+              </label>
+
+              <div className='flex flex-col gap-2 text-sm font-medium text-slate-600'>
+                <p>System logs</p>
+                <div className='space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-xs text-slate-600'>
+                  {systemLogs.map((log) => (
+                    <div key={log.id}>
+                      <p className='text-sm font-semibold text-slate-900'>{log.title}</p>
+                      <p>{log.detail}</p>
+                      <p className='text-[0.7em] text-slate-400'>{log.time}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className='flex flex-col gap-2 text-sm font-medium text-slate-600'>
+                <p>API key</p>
+                <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 shadow-sm'>
+                  <div className='flex items-center justify-between'>
+                    <span>{settings.backup.apiKeyAlias}</span>
+                    <button
+                      type='button'
+                      onClick={() => showToast('API key copied to clipboard')}
+                      className='text-xs font-semibold text-emerald-600'
+                    >
+                      Copy
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className='flex items-center justify-between'>
+              <button
+                type='button'
+                onClick={() => handleSaveSection('backup')}
+                className='rounded-2xl border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400'
+              >
+                Save backup plan
+              </button>
+              <button
+                type='button'
+                onClick={() => showToast('Export started. You will receive a download link soon.')}
+                className='rounded-2xl bg-emerald-50 px-5 py-2 text-sm font-semibold text-emerald-600 transition hover:bg-emerald-100'
+              >
+                Export data
+              </button>
+            </div>
+          </div>
+      default:
+        return null;
+    }
+  };
+  return (
