@@ -11,6 +11,7 @@ import {
   UserRound,
   Users
 } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const sections = [
   { id: 'general', label: 'General', description: 'Company details & contact info', icon: Globe },
@@ -163,6 +164,7 @@ export default function SettingsPage() {
   const [users, setUsers] = useState(initialUsers);
   const [toast, setToast] = useState(null);
   const toastTimerRef = useRef(null);
+  const { language, setLanguage } = useLanguage();
 
   useEffect(() => {
     return () => {
@@ -273,6 +275,24 @@ export default function SettingsPage() {
     showToast(`${section.label} settings saved successfully.`);
   };
 
+  useEffect(() => {
+    setSettings((prev) => {
+      if (prev.general.language === language && prev.ui.language === language) {
+        return prev;
+      }
+      return {
+        ...prev,
+        general: { ...prev.general, language },
+        ui: { ...prev.ui, language }
+      };
+    });
+  }, [language, setSettings]);
+
+  const handleLanguageSelect = (sectionId, value) => {
+    handleFieldChange(sectionId, 'language', value);
+    setLanguage(value);
+  };
+
   const generalErrors =
     !settings.general.companyName.trim() || !settings.general.email || !settings.general.phone
       ? [
@@ -373,7 +393,7 @@ export default function SettingsPage() {
                 Language
                 <select
                   value={settings.general.language}
-                  onChange={(event) => handleFieldChange('general', 'language', event.target.value)}
+                  onChange={(event) => handleLanguageSelect('general', event.target.value)}
                   className='rounded-2xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none'
                 >
                   <option value='English'>English</option>
@@ -1004,7 +1024,7 @@ export default function SettingsPage() {
                 Interface language
                 <select
                   value={settings.ui.language}
-                  onChange={(event) => handleFieldChange('ui', 'language', event.target.value)}
+                  onChange={(event) => handleLanguageSelect('ui', event.target.value)}
                   className='rounded-2xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none'
                 >
                   <option value='English'>English</option>
