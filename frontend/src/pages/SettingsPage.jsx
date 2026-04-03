@@ -25,6 +25,16 @@ const sections = [
   { id: 'backup', label: 'Backup & System', description: 'Data export & logs', icon: Database }
 ];
 
+const actionButtonBase = 'rounded-2xl px-5 py-2 text-sm font-semibold transition focus:outline-none';
+const primaryAction =
+  `${actionButtonBase} bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-[0_12px_30px_rgba(16,185,129,0.4)] hover:from-emerald-400`;
+const secondaryAction =
+  `${actionButtonBase} border border-slate-200 bg-white text-slate-700 shadow-sm hover:border-slate-300`;
+const mutedAction =
+  `${actionButtonBase} border border-slate-300 bg-slate-50 text-slate-600 hover:border-slate-400`;
+const accentAction =
+  `${actionButtonBase} border border-emerald-200 bg-white text-emerald-600 shadow-sm hover:bg-emerald-50`;
+
 const defaultSettings = {
   general: {
     companyName: 'Somali Logistics',
@@ -420,11 +430,7 @@ export default function SettingsPage() {
               <div className='text-sm text-slate-500'>
                 Changes are staged locally — click save to push them to the backend.
               </div>
-              <button
-                type='button'
-                onClick={() => handleSaveSection('general')}
-                className='rounded-2xl bg-emerald-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-emerald-500'
-              >
+              <button type='button' onClick={() => handleSaveSection('general')} className={primaryAction}>
                 Save changes
               </button>
             </div>
@@ -507,11 +513,7 @@ export default function SettingsPage() {
 
             <div className='flex items-center justify-between'>
               <span className='text-sm text-slate-500'>Fuel & maintenance controls apply to every route.</span>
-              <button
-                type='button'
-                onClick={() => handleSaveSection('fleet')}
-                className='rounded-2xl border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400'
-              >
+              <button type='button' onClick={() => handleSaveSection('fleet')} className={secondaryAction}>
                 Save fleet rules
               </button>
             </div>
@@ -584,11 +586,7 @@ export default function SettingsPage() {
 
             <div className='flex items-center justify-between'>
               <span className='text-sm text-slate-500'>Permissions and alerts move with every fleet shift.</span>
-              <button
-                type='button'
-                onClick={() => handleSaveSection('driver')}
-                className='rounded-2xl border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400'
-              >
+              <button type='button' onClick={() => handleSaveSection('driver')} className={secondaryAction}>
                 Save driver rules
               </button>
             </div>
@@ -688,11 +686,7 @@ export default function SettingsPage() {
 
             <div className='flex items-center justify-between'>
               <span className='text-sm text-slate-500'>Changes sync over WebSockets to the dashboard.</span>
-              <button
-                type='button'
-                onClick={() => handleSaveSection('gps')}
-                className='rounded-2xl border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400'
-              >
+              <button type='button' onClick={() => handleSaveSection('gps')} className={secondaryAction}>
                 Save GPS settings
               </button>
             </div>
@@ -822,7 +816,7 @@ export default function SettingsPage() {
               <button
                 type='button'
                 onClick={() => handleSaveSection('notifications')}
-                className='rounded-2xl border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400'
+                className={secondaryAction}
               >
                 Save notification rules
               </button>
@@ -889,11 +883,7 @@ export default function SettingsPage() {
 
             <div className='flex items-center justify-between'>
               <span className='text-sm text-slate-500'>Security changes sync immediately to the Identity Provider.</span>
-              <button
-                type='button'
-                onClick={() => handleSaveSection('security')}
-                className='rounded-2xl border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400'
-              >
+              <button type='button' onClick={() => handleSaveSection('security')} className={secondaryAction}>
                 Save security preferences
               </button>
             </div>
@@ -1036,11 +1026,7 @@ export default function SettingsPage() {
 
             <div className='flex items-center justify-between'>
               <span className='text-sm text-slate-500'>Switch between desktop and tablet layouts on the fly.</span>
-              <button
-                type='button'
-                onClick={() => handleSaveSection('ui')}
-                className='rounded-2xl border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400'
-              >
+              <button type='button' onClick={() => handleSaveSection('ui')} className={secondaryAction}>
                 Save UI preferences
               </button>
             </div>
@@ -1119,11 +1105,7 @@ export default function SettingsPage() {
             </div>
 
             <div className='flex items-center justify-between'>
-              <button
-                type='button'
-                onClick={() => handleSaveSection('backup')}
-                className='rounded-2xl border border-slate-200 px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400'
-              >
+              <button type='button' onClick={() => handleSaveSection('backup')} className={secondaryAction}>
                 Save backup plan
               </button>
               <button
@@ -1149,87 +1131,105 @@ export default function SettingsPage() {
   const idleVehicles = Math.max(0, vehicles.length - activeAlertCount);
 
   return (
-    <div className='space-y-8 px-4 py-6 sm:px-6 lg:px-10'>
-      <header className='space-y-1'>
-        <p className='text-xs font-semibold uppercase tracking-[0.4em] text-slate-400'>Logistics control</p>
-        <h1 className='text-4xl font-bold text-[#10B981]'>Settings</h1>
-        <p className='text-sm text-slate-500'>
-          Configure company details, fleet policies, GPS rules and alerts for the entire operation.
-        </p>
-      </header>
+    <div className='min-h-screen bg-gradient-to-b from-slate-100 to-slate-200'>
+      <div className='mx-auto flex max-w-6xl flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8 lg:py-12'>
+        <header className='space-y-3 text-left'>
+          <p className='text-xs font-semibold uppercase tracking-[0.4em] text-slate-400'>Logistics control</p>
+          <h1 className='text-5xl font-bold text-[#0f766e]'>Settings</h1>
+          <p className='text-base text-slate-600'>
+            Configure company details, fleet policies, GPS rules and alerts for the entire operation.
+          </p>
+        </header>
 
-      <div className='grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]'>
-        <aside className='space-y-4'>
-          <div className='rounded-3xl border border-slate-200 bg-white p-5 shadow-sm'>
-            <p className='text-sm font-semibold text-slate-900'>Live telemetry</p>
-            <div className='mt-4 grid gap-4'>
-              <div className='rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3'>
-                <p className='text-[0.7em] uppercase tracking-[0.4em] text-slate-400'>Vehicles reporting</p>
-                <p className='text-2xl font-semibold text-slate-900'>{vehicles.length}</p>
-                <p className='text-[0.65em] uppercase tracking-[0.4em] text-slate-500'>Updated {liveTimestamp}</p>
-              </div>
-              <div className='rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-3'>
-                <p className='text-[0.7em] uppercase tracking-[0.4em] text-emerald-700'>Alerts enabled</p>
-                <p className='text-2xl font-semibold text-emerald-700'>{activeAlertCount}</p>
-                <p className='text-[0.65em] uppercase tracking-[0.4em] text-emerald-600'>
-                  Idle / offline {idleVehicles}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className='rounded-3xl border border-slate-200 bg-white p-5 shadow-sm'>
-            <p className='text-sm font-semibold text-slate-900'>Sections</p>
-            <div className='mt-3 space-y-2'>
-              {sections.map((section) => {
-                const Icon = section.icon;
-                const isActive = activeSection === section.id;
-                return (
-                  <button
-                    key={section.id}
-                    type='button'
-                    onClick={() => setActiveSection(section.id)}
-                    className={`flex items-center gap-3 w-full rounded-2xl px-3 py-2 text-left text-sm font-medium transition ${
-                      isActive
-                        ? 'bg-emerald-50 text-emerald-700 shadow-[0_4px_12px_rgba(16,185,129,0.2)]'
-                        : 'text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className='grid h-10 w-10 place-items-center rounded-2xl bg-slate-50 text-slate-600'>
-                      <Icon size={18} />
-                    </span>
-                    <div className='flex-1'>
-                      <p className={`text-sm font-semibold ${isActive ? 'text-emerald-600' : 'text-slate-800'}`}>
-                        {section.label}
-                      </p>
-                      <p className='text-xs text-slate-400'>{section.description}</p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className='rounded-3xl border border-slate-200 bg-white p-5 shadow-sm'>
-            <p className='text-sm font-semibold text-slate-900'>Alert history</p>
-            <div className='mt-3 space-y-3 text-xs text-slate-500'>
-              {notificationHistory.slice(0, 3).map((notification) => (
-                <div key={notification.id} className='flex items-start justify-between'>
-                  <div>
-                    <p className='text-sm font-semibold text-slate-900'>{notification.type}</p>
-                    <p className='text-[0.8em]'>{notification.message}</p>
-                    <p className='text-[0.65em] text-slate-400'>{notification.timestamp}</p>
-                  </div>
-                  <span className='text-[0.6em] uppercase tracking-[0.3em] text-slate-400'>
-                    {notification.channel}
-                  </span>
+        <div className='rounded-[40px] border border-slate-200 bg-white/80 p-6 shadow-[0_35px_80px_rgba(15,23,42,0.15)] backdrop-blur-sm'>
+          <div className='grid gap-8 lg:grid-cols-[320px_minmax(0,1fr)]'>
+            <aside className='space-y-6'>
+              <div className='rounded-3xl border border-slate-100 bg-slate-50/80 p-5 shadow-none'>
+                <div className='flex items-center gap-2 text-slate-600'>
+                  <Truck size={18} />
+                  <p className='text-sm font-semibold text-slate-900'>Live telemetry</p>
                 </div>
-              ))}
-            </div>
-          </div>
-        </aside>
+                <div className='mt-4 space-y-3'>
+                  <div className='rounded-2xl border border-slate-100 bg-white/80 px-4 py-3'>
+                    <div className='flex items-center gap-2 text-[0.65em] uppercase tracking-[0.3em] text-slate-400'>
+                      <span>Vehicles reporting</span>
+                      <span className='h-px w-6 bg-slate-300' />
+                      <span className='text-xs font-semibold text-emerald-600'>{vehicles.length}</span>
+                    </div>
+                    <p className='mt-2 text-3xl font-semibold text-slate-900'>{vehicles.length}</p>
+                    <div className='mt-2 text-[0.7em] uppercase tracking-[0.3em] text-slate-500'>
+                      Updated {liveTimestamp}
+                    </div>
+                  </div>
+                  <div className='rounded-2xl border border-emerald-200 bg-emerald-50/70 px-4 py-3'>
+                    <div className='flex items-center gap-2 text-[0.65em] uppercase tracking-[0.3em] text-emerald-700'>
+                      <Bell size={14} />
+                      <span>Alerts enabled</span>
+                      <span className='h-px w-6 bg-emerald-200' />
+                      <span className='text-xs font-semibold text-emerald-600'>{activeAlertCount}</span>
+                    </div>
+                    <p className='mt-2 text-3xl font-semibold text-emerald-700'>{activeAlertCount}</p>
+                    <div className='mt-2 text-[0.65em] uppercase tracking-[0.3em] text-emerald-600'>
+                      Idle / offline {idleVehicles}
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-        <section className='space-y-5'>{activeSectionContent()}</section>
+              <div className='rounded-3xl border border-slate-100 bg-white p-5 shadow'>
+                <p className='text-sm font-semibold text-slate-900'>Sections</p>
+                <div className='mt-3 space-y-2'>
+                  {sections.map((section) => {
+                    const Icon = section.icon;
+                    const isActive = activeSection === section.id;
+                    return (
+                      <button
+                        key={section.id}
+                        type='button'
+                        onClick={() => setActiveSection(section.id)}
+                        className={`flex items-center gap-3 w-full rounded-2xl px-3 py-2 text-left text-sm font-medium transition ${
+                          isActive
+                            ? 'bg-emerald-50 text-emerald-700 shadow-[0_6px_20px_rgba(16,185,129,0.15)]'
+                            : 'text-slate-600 hover:bg-slate-50'
+                        }`}
+                      >
+                        <span className='grid h-10 w-10 place-items-center rounded-2xl bg-slate-50 text-slate-600'>
+                          <Icon size={18} />
+                        </span>
+                        <div className='flex-1'>
+                          <p className={`text-sm font-semibold ${isActive ? 'text-emerald-600' : 'text-slate-800'}`}>
+                            {section.label}
+                          </p>
+                          <p className='text-xs text-slate-400'>{section.description}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className='rounded-3xl border border-slate-100 bg-white p-5 shadow'>
+                <p className='text-sm font-semibold text-slate-900'>Alert history</p>
+                <div className='mt-3 space-y-3 text-xs text-slate-500'>
+                  {notificationHistory.slice(0, 3).map((notification) => (
+                    <div key={notification.id} className='flex items-start justify-between'>
+                      <div>
+                        <p className='text-sm font-semibold text-slate-900'>{notification.type}</p>
+                        <p className='text-[0.8em]'>{notification.message}</p>
+                        <p className='text-[0.65em] text-slate-400'>{notification.timestamp}</p>
+                      </div>
+                      <span className='text-[0.6em] uppercase tracking-[0.3em] text-slate-400'>
+                        {notification.channel}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </aside>
+
+            <section className='space-y-5'>{activeSectionContent()}</section>
+          </div>
+        </div>
       </div>
 
       {toast && (
