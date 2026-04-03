@@ -1177,7 +1177,6 @@ export default function SettingsPage() {
             </div>
           </div>
         )}
-
         <div className='rounded-[40px] border border-slate-200 bg-white/80 p-6 shadow-[0_35px_80px_rgba(15,23,42,0.15)] backdrop-blur-sm'>
           <div className='grid gap-8 lg:grid-cols-[280px_minmax(0,820px)]'>
             <aside className='space-y-6'>

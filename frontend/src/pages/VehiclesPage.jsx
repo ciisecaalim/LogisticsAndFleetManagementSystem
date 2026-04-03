@@ -1,5 +1,5 @@
+import { Check, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pencil, Plus, Trash2, X } from 'lucide-react';
 import api from '../services/api';
 import { downloadCsv, parseCsv } from '../utils/csv';
 
@@ -50,6 +50,10 @@ function getStatusClass(status) {
   return 'bg-[#64748B]/20 text-[#1E293B]';
 }
 
+function getVehicleKey(vehicle) {
+  return vehicle._id || vehicle.id || vehicle.plateNumber;
+}
+
 export default function VehiclesPage() {
   const [vehicles, setVehicles] = useState(getCachedVehicles);
   const [loading, setLoading] = useState(vehicles.length === 0);
@@ -61,6 +65,64 @@ export default function VehiclesPage() {
   const [editingId, setEditingId] = useState('');
   const [formData, setFormData] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [sortKey, setSortKey] = useState('plateNumber');
+  const [sortDirection, setSortDirection] = useState('asc');
+  const [selectedVehicleIds, setSelectedVehicleIds] = useState([]);
+  const filteredVehicles = useMemo(() => {
+    const list = statusFilter === 'All' ? vehicles : vehicles.filter((vehicle) => vehicle.status === statusFilter);
+    const direction = sortDirection === 'asc' ? 1 : -1;
+    return [...list].sort((a, b) => {
+      const getValue = (item) => {
+        const value = item[sortKey];
+        if (value === undefined || value === null) {
+          return '';
+        }
+        return typeof value === 'string' ? value.toLowerCase() : value;
+      };
+      const aval = getValue(a);
+      const bval = getValue(b);
+      if (sortKey === 'year') {
+        return direction * (Number(aval) - Number(bval));
+      }
+      if (aval === bval) {
+        return 0;
+      }
+      return direction * (aval > bval ? 1 : -1);
+    });
+  }, [vehicles, statusFilter, sortKey, sortDirection]);
+
+  const filteredVehicleKeys = filteredVehicles.map((vehicle) => getVehicleKey(vehicle));
+  const allDisplayedSelected =
+    filteredVehicleKeys.length > 0 && filteredVehicleKeys.every((id) => selectedVehicleIds.includes(id));
+  const toggleSelectAll = () => {
+    if (allDisplayedSelected) {
+      setSelectedVehicleIds((prev) => prev.filter((id) => !filteredVehicleKeys.includes(id)));
+      return;
+    }
+    setSelectedVehicleIds((prev) => {
+      const next = [...prev];
+      filteredVehicleKeys.forEach((id) => {
+        if (!next.includes(id)) {
+          next.push(id);
+        }
+      });
+      return next;
+    });
+  };
+  const toggleSelectOne = (vehicleId) => {
+    setSelectedVehicleIds((prev) =>
+      prev.includes(vehicleId) ? prev.filter((id) => id !== vehicleId) : [...prev, vehicleId]
+    );
+  };
+
+  const handleSort = (key) => {
+    if (sortKey === key) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+    setSortKey(key);
+    setSortDirection('asc');
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -240,21 +302,19 @@ export default function VehiclesPage() {
             >
               Import CSV
             </button>
-            <div className='flex flex-wrap items-center gap-2 rounded-xl border border-[#64748B]/25 bg-white px-3 py-2 text-sm text-[#1E293B]'>
-              {VEHICLE_STATUS_OPTIONS.map((status) => (
-                <label key={status} className='inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.3em] text-[#1E293B]'>
-                  <input
-                    type='radio'
-                    name='vehicle-status'
-                    value={status}
-                    checked={statusFilter === status}
-                    onChange={(event) => setStatusFilter(event.target.value)}
-                    className='accent-[#10B981]'
-                  />
-                  {status}
-                </label>
-              ))}
-            </div>
+            <label className='flex flex-col gap-2 text-sm font-medium text-[#1E293B]'>
+              <select
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+                className='rounded-2xl border border-[#64748B]/20 bg-white px-4 py-2 text-sm font-semibold text-[#1E293B]'
+              >
+                {VEHICLE_STATUS_OPTIONS.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </label>
             <input
               ref={fileInputRef}
               type='file'
@@ -417,21 +477,43 @@ export default function VehiclesPage() {
         <h2 className='m-0 text-xl font-semibold text-[#1E293B]'>All Vehicles</h2>
 
         <div className='mt-6 overflow-x-auto'>
-          <div className='min-w-245'>
-            <div className='grid grid-cols-[1.2fr_1.6fr_0.8fr_0.8fr_1.2fr_1.4fr_0.8fr] border-b border-[#64748B]/20 px-3 py-3 text-left text-xs font-semibold text-[#1E293B] sm:text-sm'>
-              <div>Plate Number</div>
-              <div>Model</div>
-              <div>Type</div>
-              <div>Year</div>
-              <div>Status</div>
-              <div>Assigned Driver</div>
+          <div className='min-w-[calc(100%+1px)]'>
+            <div className='grid grid-cols-[0.6fr_1.2fr_1.6fr_0.8fr_0.8fr_1.2fr_1.4fr_0.8fr] border-b border-[#64748B]/20 px-3 py-3 text-left text-xs font-semibold text-[#1E293B] sm:text-sm'>
+              <div className='flex justify-center'>
+                <button
+                  type='button'
+                  aria-label='Select all vehicles'
+                  onClick={toggleSelectAll}
+                  className={`grid h-5 w-5 place-items-center rounded-full border transition ${
+                    allDisplayedSelected ? 'bg-[#10B981] border-[#10B981] text-white' : 'border-[#cbd5f5]'
+                  }`}
+                >
+                  {allDisplayedSelected ? <Check size={12} strokeWidth={3} /> : null}
+                </button>
+              </div>
+              {vehicleColumns.map((column) => (
+              <button
+                key={column.key}
+                type='button'
+                  onClick={() => handleSort(column.key)}
+                  className='flex items-center gap-1 text-left leading-tight text-xs font-semibold text-[#1E293B]'
+                >
+                  <span>{column.label}</span>
+                  {sortKey === column.key && (
+                    <span className='text-[0.6em] uppercase tracking-[0.3em]'>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                  )}
+                </button>
+              ))}
               <div>Actions</div>
             </div>
 
             {loading && vehicles.length === 0 ? <p className='px-3 py-5 text-sm text-[#64748B]'>Loading vehicles...</p> : null}
             {!loading && vehicles.length === 0 ? <p className='px-3 py-5 text-sm text-[#64748B]'>No vehicles found.</p> : null}
+            {!loading && vehicles.length > 0 && filteredVehicles.length === 0 && (
+              <p className='px-3 py-5 text-sm text-[#64748B]'>No vehicles match the current filter.</p>
+            )}
 
-            {vehicles.map((vehicle) => (
+            {filteredVehicles.map((vehicle) => (
               <div
                 key={vehicle._id || vehicle.id || vehicle.plateNumber}
                 className='grid grid-cols-[1.2fr_1.6fr_0.8fr_0.8fr_1.2fr_1.4fr_0.8fr] border-b border-[#64748B]/20 px-3 py-4'
