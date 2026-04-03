@@ -1,0 +1,3 @@
+const fs = require('fs'
+const startArg = Number(process.argv[3]
+const endArg = Number(process.argv[4]
