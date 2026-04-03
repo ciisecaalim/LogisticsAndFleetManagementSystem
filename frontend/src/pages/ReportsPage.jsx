@@ -5,7 +5,7 @@ export default function ReportsPage() {
     <section className='space-y-6'>
       <header className='flex flex-wrap items-start justify-between gap-4'>
         <div>
-          <h1 className='m-0 text-3xl font-bold tracking-tight text-[#1E293B] sm:text-4xl'>Reports</h1>
+          <h1 className='m-0 text-3xl font-bold tracking-tight text-[#10B981] sm:text-4xl'>Reports</h1>
           <p className='mt-1 text-base font-medium text-[#1E293B] sm:text-lg'>View and export fleet performance reports</p>
         </div>
 

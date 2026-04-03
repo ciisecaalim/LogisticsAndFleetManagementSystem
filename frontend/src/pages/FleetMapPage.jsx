@@ -351,7 +351,7 @@ export default function FleetMapPage() {
           </span>
           <div>
             <p className='m-0 text-[0.75em] font-bold uppercase tracking-[0.28em] text-[#64748B]'>Fleet Tracking Map</p>
-            <h1 className='mt-2 text-[1.45em] font-bold tracking-tight text-[#1E293B]'>Fleet Tracking Map</h1>
+            <h1 className='mt-2 text-[1.45em] font-bold tracking-tight text-[#10B981]'>Fleet Tracking Map</h1>
             <p className='m-0 text-[1em] font-medium text-[#1E293B]'>Real-time vehicle tracking and route monitoring</p>
           </div>
         </div>
