@@ -377,8 +377,8 @@ export default function SettingsPage() {
                   className='rounded-2xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none'
                 >
                   <option value='English'>English</option>
-                  <option value='Arabic'>Arabic</option>
-                  <option value='French'>French</option>
+                  <option value='Somali'>Somali</option>
+                  <option value='Arabic'>Carabi</option>
                 </select>
               </label>
             </div>
@@ -808,6 +808,7 @@ export default function SettingsPage() {
               </button>
             </div>
           </div>
+        );
       case 'security':
         return (
           <div className='space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5'>
@@ -877,6 +878,7 @@ export default function SettingsPage() {
               </button>
             </div>
           </div>
+        );
       case 'users':
         return (
           <div className='space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5'>
@@ -962,6 +964,7 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
+        );
       case 'ui':
         return (
           <div className='space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5'>
@@ -1005,8 +1008,8 @@ export default function SettingsPage() {
                   className='rounded-2xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none'
                 >
                   <option value='English'>English</option>
-                  <option value='Arabic'>Arabic</option>
-                  <option value='French'>French</option>
+                  <option value='Somali'>Somali</option>
+                  <option value='Arabic'>Carabi</option>
                 </select>
               </label>
             </div>
@@ -1022,6 +1025,7 @@ export default function SettingsPage() {
               </button>
             </div>
           </div>
+        );
       case 'backup':
         return (
           <div className='space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5'>
@@ -1111,9 +1115,112 @@ export default function SettingsPage() {
               </button>
             </div>
           </div>
+        );
       default:
         return null;
     }
   };
+
+  const liveTimestamp = new Date().toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+  const activeAlertCount = vehicles.filter((vehicle) => vehicle.alertsEnabled).length;
+  const idleVehicles = Math.max(0, vehicles.length - activeAlertCount);
+
   return (
-  return (
+    <div className='space-y-8 px-4 py-6 sm:px-6 lg:px-10'>
+      <header className='space-y-1'>
+        <p className='text-xs font-semibold uppercase tracking-[0.4em] text-slate-400'>Logistics control</p>
+        <h1 className='text-4xl font-bold text-[#10B981]'>Settings</h1>
+        <p className='text-sm text-slate-500'>
+          Configure company details, fleet policies, GPS rules and alerts for the entire operation.
+        </p>
+      </header>
+
+      <div className='grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]'>
+        <aside className='space-y-4'>
+          <div className='rounded-3xl border border-slate-200 bg-white p-5 shadow-sm'>
+            <p className='text-sm font-semibold text-slate-900'>Live telemetry</p>
+            <div className='mt-4 grid gap-4'>
+              <div className='rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3'>
+                <p className='text-[0.7em] uppercase tracking-[0.4em] text-slate-400'>Vehicles reporting</p>
+                <p className='text-2xl font-semibold text-slate-900'>{vehicles.length}</p>
+                <p className='text-[0.65em] uppercase tracking-[0.4em] text-slate-500'>Updated {liveTimestamp}</p>
+              </div>
+              <div className='rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-3'>
+                <p className='text-[0.7em] uppercase tracking-[0.4em] text-emerald-700'>Alerts enabled</p>
+                <p className='text-2xl font-semibold text-emerald-700'>{activeAlertCount}</p>
+                <p className='text-[0.65em] uppercase tracking-[0.4em] text-emerald-600'>
+                  Idle / offline {idleVehicles}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className='rounded-3xl border border-slate-200 bg-white p-5 shadow-sm'>
+            <p className='text-sm font-semibold text-slate-900'>Sections</p>
+            <div className='mt-3 space-y-2'>
+              {sections.map((section) => {
+                const Icon = section.icon;
+                const isActive = activeSection === section.id;
+                return (
+                  <button
+                    key={section.id}
+                    type='button'
+                    onClick={() => setActiveSection(section.id)}
+                    className={`flex items-center gap-3 w-full rounded-2xl px-3 py-2 text-left text-sm font-medium transition ${
+                      isActive
+                        ? 'bg-emerald-50 text-emerald-700 shadow-[0_4px_12px_rgba(16,185,129,0.2)]'
+                        : 'text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className='grid h-10 w-10 place-items-center rounded-2xl bg-slate-50 text-slate-600'>
+                      <Icon size={18} />
+                    </span>
+                    <div className='flex-1'>
+                      <p className={`text-sm font-semibold ${isActive ? 'text-emerald-600' : 'text-slate-800'}`}>
+                        {section.label}
+                      </p>
+                      <p className='text-xs text-slate-400'>{section.description}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className='rounded-3xl border border-slate-200 bg-white p-5 shadow-sm'>
+            <p className='text-sm font-semibold text-slate-900'>Alert history</p>
+            <div className='mt-3 space-y-3 text-xs text-slate-500'>
+              {notificationHistory.slice(0, 3).map((notification) => (
+                <div key={notification.id} className='flex items-start justify-between'>
+                  <div>
+                    <p className='text-sm font-semibold text-slate-900'>{notification.type}</p>
+                    <p className='text-[0.8em]'>{notification.message}</p>
+                    <p className='text-[0.65em] text-slate-400'>{notification.timestamp}</p>
+                  </div>
+                  <span className='text-[0.6em] uppercase tracking-[0.3em] text-slate-400'>
+                    {notification.channel}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+
+        <section className='space-y-5'>{activeSectionContent()}</section>
+      </div>
+
+      {toast && (
+        <div
+          className={`fixed bottom-6 right-6 z-50 max-w-xs rounded-2xl px-5 py-3 text-sm font-semibold text-white shadow-lg ${
+            toast.variant === 'error' ? 'bg-rose-500' : 'bg-emerald-500'
+          }`}
+        >
+          {toast.message}
+        </div>
+      )}
+    </div>
+  );
+}
