@@ -9,7 +9,8 @@ import {
   Shield,
   Truck,
   UserRound,
-  Users
+  Users,
+  X
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -175,6 +176,7 @@ export default function SettingsPage() {
   const [toast, setToast] = useState(null);
   const toastTimerRef = useRef(null);
   const { language, setLanguage } = useLanguage();
+  const [alertHistoryOpen, setAlertHistoryOpen] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -961,11 +963,7 @@ export default function SettingsPage() {
             </div>
 
             <div className='flex items-center justify-between'>
-              <button
-                type='button'
-                onClick={handleAddUser}
-                className='rounded-2xl border border-emerald-500 px-5 py-2 text-sm font-semibold text-emerald-600 transition hover:bg-emerald-50'
-              >
+              <button type='button' onClick={handleAddUser} className={accentAction}>
                 Add user
               </button>
               <div className='flex items-center gap-2 text-sm text-slate-500'>
@@ -1111,7 +1109,7 @@ export default function SettingsPage() {
               <button
                 type='button'
                 onClick={() => showToast('Export started. You will receive a download link soon.')}
-                className='rounded-2xl bg-emerald-50 px-5 py-2 text-sm font-semibold text-emerald-600 transition hover:bg-emerald-100'
+                className={accentAction}
               >
                 Export data
               </button>
@@ -1132,7 +1130,7 @@ export default function SettingsPage() {
 
   return (
     <div className='min-h-screen bg-gradient-to-b from-slate-100 to-slate-200'>
-      <div className='mx-auto flex max-w-6xl flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8 lg:py-12'>
+      <div className='mx-auto flex max-w-[1120px] flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8 lg:py-12'>
         <header className='space-y-3 text-left'>
           <p className='text-xs font-semibold uppercase tracking-[0.4em] text-slate-400'>Logistics control</p>
           <h1 className='text-5xl font-bold text-[#0f766e]'>Settings</h1>
@@ -1142,7 +1140,7 @@ export default function SettingsPage() {
         </header>
 
         <div className='rounded-[40px] border border-slate-200 bg-white/80 p-6 shadow-[0_35px_80px_rgba(15,23,42,0.15)] backdrop-blur-sm'>
-          <div className='grid gap-8 lg:grid-cols-[320px_minmax(0,1fr)]'>
+          <div className='grid gap-8 lg:grid-cols-[280px_minmax(0,820px)]'>
             <aside className='space-y-6'>
               <div className='rounded-3xl border border-slate-100 bg-slate-50/80 p-5 shadow-none'>
                 <div className='flex items-center gap-2 text-slate-600'>
@@ -1208,23 +1206,6 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              <div className='rounded-3xl border border-slate-100 bg-white p-5 shadow'>
-                <p className='text-sm font-semibold text-slate-900'>Alert history</p>
-                <div className='mt-3 space-y-3 text-xs text-slate-500'>
-                  {notificationHistory.slice(0, 3).map((notification) => (
-                    <div key={notification.id} className='flex items-start justify-between'>
-                      <div>
-                        <p className='text-sm font-semibold text-slate-900'>{notification.type}</p>
-                        <p className='text-[0.8em]'>{notification.message}</p>
-                        <p className='text-[0.65em] text-slate-400'>{notification.timestamp}</p>
-                      </div>
-                      <span className='text-[0.6em] uppercase tracking-[0.3em] text-slate-400'>
-                        {notification.channel}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
             </aside>
 
             <section className='space-y-5'>{activeSectionContent()}</section>
