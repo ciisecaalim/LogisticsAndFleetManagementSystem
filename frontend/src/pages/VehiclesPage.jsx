@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pencil, Plus, Trash2, X } from 'lucide-react';
 import api from '../services/api';
 import { downloadCsv, parseCsv } from '../utils/csv';
@@ -54,7 +54,7 @@ export default function VehiclesPage() {
   const [vehicles, setVehicles] = useState(getCachedVehicles);
   const [loading, setLoading] = useState(vehicles.length === 0);
   const [error, setError] = useState('');
-  const [exportStatus, setExportStatus] = useState('All');
+  const [statusFilter, setStatusFilter] = useState('All');
   const fileInputRef = useRef(null);
 
   const [formMode, setFormMode] = useState(null);
@@ -222,8 +222,11 @@ export default function VehiclesPage() {
               onClick={() =>
                 downloadCsv({
                   columns: vehicleColumns,
-                  data: exportStatus === 'All' ? vehicles : vehicles.filter((vehicle) => vehicle.status === exportStatus),
-                  filename: exportStatus === 'All' ? 'vehicles.csv' : `vehicles-${exportStatus.toLowerCase().replace(/\s+/g, '-')}.csv`
+                  data: statusFilter === 'All' ? vehicles : vehicles.filter((vehicle) => vehicle.status === statusFilter),
+                  filename:
+                    statusFilter === 'All'
+                      ? 'vehicles.csv'
+                      : `vehicles-${statusFilter.toLowerCase().replace(/\s+/g, '-')}.csv`
                 })
               }
               className='inline-flex items-center gap-2 rounded-xl border border-[#64748B]/20 bg-white px-4 py-2 text-sm font-semibold text-[#1E293B]'
@@ -237,17 +240,21 @@ export default function VehiclesPage() {
             >
               Import CSV
             </button>
-            <select
-              value={exportStatus}
-              onChange={(event) => setExportStatus(event.target.value)}
-              className='rounded-xl border border-[#64748B]/25 bg-white px-3 py-2 text-sm text-[#1E293B]'
-            >
+            <div className='flex flex-wrap items-center gap-2 rounded-xl border border-[#64748B]/25 bg-white px-3 py-2 text-sm text-[#1E293B]'>
               {VEHICLE_STATUS_OPTIONS.map((status) => (
-                <option key={status} value={status}>
+                <label key={status} className='inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.3em] text-[#1E293B]'>
+                  <input
+                    type='radio'
+                    name='vehicle-status'
+                    value={status}
+                    checked={statusFilter === status}
+                    onChange={(event) => setStatusFilter(event.target.value)}
+                    className='accent-[#10B981]'
+                  />
                   {status}
-                </option>
+                </label>
               ))}
-            </select>
+            </div>
             <input
               ref={fileInputRef}
               type='file'

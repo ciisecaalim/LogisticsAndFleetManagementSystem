@@ -1137,7 +1137,46 @@ export default function SettingsPage() {
           <p className='text-base text-slate-600'>
             Configure company details, fleet policies, GPS rules and alerts for the entire operation.
           </p>
+          <div className='flex flex-wrap items-center justify-end gap-3'>
+            <button
+              type='button'
+              className={accentAction}
+              onClick={() => setAlertHistoryOpen((prev) => !prev)}
+            >
+              Alert history
+            </button>
+          </div>
         </header>
+
+        {alertHistoryOpen && (
+          <div className='mt-2 rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_20px_60px_rgba(15,23,42,0.25)]'>
+            <div className='flex items-center justify-between'>
+              <p className='text-sm font-semibold text-slate-900'>Alert history</p>
+              <button
+                type='button'
+                onClick={() => setAlertHistoryOpen(false)}
+                className='text-slate-500 transition hover:text-slate-900'
+                aria-label='Close alert history'
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className='mt-3 space-y-3 text-xs text-slate-500'>
+              {notificationHistory.slice(0, 3).map((notification) => (
+                <div key={notification.id} className='flex items-start justify-between'>
+                  <div>
+                    <p className='text-sm font-semibold text-slate-900'>{notification.type}</p>
+                    <p className='text-[0.8em]'>{notification.message}</p>
+                    <p className='text-[0.65em] text-slate-400'>{notification.timestamp}</p>
+                  </div>
+                  <span className='text-[0.6em] uppercase tracking-[0.3em] text-slate-400'>
+                    {notification.channel}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className='rounded-[40px] border border-slate-200 bg-white/80 p-6 shadow-[0_35px_80px_rgba(15,23,42,0.15)] backdrop-blur-sm'>
           <div className='grid gap-8 lg:grid-cols-[280px_minmax(0,820px)]'>
