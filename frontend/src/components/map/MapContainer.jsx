@@ -49,6 +49,7 @@ const gpsIcon = L.divIcon({
 export default function MapContainer({ vehicles, routePoints, center, zoomKey, selectedStart, selectedEnd, gpsLocation }) {
   const startPoint = routePoints[0];
   const endPoint = routePoints[routePoints.length - 1];
+  const hasRoute = Array.isArray(routePoints) && routePoints.length > 1;
 
   return (
     <div className='h-[440px] min-h-[440px] w-full overflow-hidden rounded-2xl border border-[#64748B]/15 bg-[#0f172a] p-2 shadow-lg shadow-slate-900/10 lg:h-[560px] lg:min-h-[560px]'>
@@ -59,34 +60,40 @@ export default function MapContainer({ vehicles, routePoints, center, zoomKey, s
           url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
         />
 
-        <Polyline
-          positions={routePoints}
-          pathOptions={{
-            color: '#10B981',
-            weight: 5,
-            opacity: 0.95,
-            dashArray: '10 10',
-            lineCap: 'round'
-          }}
-        />
+        {hasRoute ? (
+          <Polyline
+            positions={routePoints}
+            pathOptions={{
+              color: '#10B981',
+              weight: 5,
+              opacity: 0.95,
+              dashArray: '10 10',
+              lineCap: 'round'
+            }}
+          />
+        ) : null}
 
-        <Marker position={startPoint} icon={endpointIcons.start}>
-          <Popup>
-            <div className='space-y-1'>
-              <p className='m-0 text-sm font-semibold text-[#1E293B]'>Route Start</p>
-              <p className='m-0 text-xs text-[#64748B]'>{selectedStart?.label || 'Fleet origin point'}</p>
-            </div>
-          </Popup>
-        </Marker>
+        {hasRoute ? (
+          <Marker position={startPoint} icon={endpointIcons.start}>
+            <Popup>
+              <div className='space-y-1'>
+                <p className='m-0 text-sm font-semibold text-[#1E293B]'>Route Start</p>
+                <p className='m-0 text-xs text-[#64748B]'>{selectedStart?.label || 'Fleet origin point'}</p>
+              </div>
+            </Popup>
+          </Marker>
+        ) : null}
 
-        <Marker position={endPoint} icon={endpointIcons.end}>
-          <Popup>
-            <div className='space-y-1'>
-              <p className='m-0 text-sm font-semibold text-[#1E293B]'>Destination</p>
-              <p className='m-0 text-xs text-[#64748B]'>{selectedEnd?.label || 'Planned delivery endpoint'}</p>
-            </div>
-          </Popup>
-        </Marker>
+        {hasRoute ? (
+          <Marker position={endPoint} icon={endpointIcons.end}>
+            <Popup>
+              <div className='space-y-1'>
+                <p className='m-0 text-sm font-semibold text-[#1E293B]'>Destination</p>
+                <p className='m-0 text-xs text-[#64748B]'>{selectedEnd?.label || 'Planned delivery endpoint'}</p>
+              </div>
+            </Popup>
+          </Marker>
+        ) : null}
 
         {gpsLocation ? (
           <Marker position={[gpsLocation.lat, gpsLocation.lng]} icon={gpsIcon}>

@@ -1,6 +1,27 @@
 const mongoose = require("mongoose");
 const Vehicle = require("../model/Vehicles");
 
+const normalizeVehiclePayload = (payload = {}) => {
+  const body = { ...payload };
+
+  const gpsSource = body.gps && typeof body.gps === "object" ? body.gps : {};
+  const lat = Number(gpsSource.lat ?? body.lat ?? 0);
+  const lng = Number(gpsSource.lng ?? body.lng ?? 0);
+  const lastUpdate = gpsSource.lastUpdate || body.lastUpdate || new Date();
+
+  body.gps = {
+    lat,
+    lng,
+    lastUpdate
+  };
+
+  body.lat = lat;
+  body.lng = lng;
+  body.lastUpdate = lastUpdate;
+
+  return body;
+};
+
 const buildVehicleQuery = (paramId) => {
   if (paramId === undefined || paramId === null) {
     return null;
@@ -54,7 +75,7 @@ const vehicleUpdate = async (req, res) => {
       return res.status(400).json({ message: "Invalid vehicle id" });
     }
 
-    const updated = await Vehicle.findOneAndUpdate(query, req.body, { new: true });
+    const updated = await Vehicle.findOneAndUpdate(query, normalizeVehiclePayload(req.body), { new: true });
 
     if (!updated) {
       return res.status(404).json({ message: "Vehicle not found" });
@@ -75,7 +96,7 @@ const vehicleUpdate = async (req, res) => {
 // ✅ CREATE
 const createVehicle = async (req, res) => {
   try {
-    const newdata = new Vehicle({ ...req.body });
+    const newdata = new Vehicle(normalizeVehiclePayload(req.body));
     const savedata = await newdata.save();
 
     res.status(200).json({

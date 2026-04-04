@@ -2,23 +2,23 @@ import { useMemo } from 'react';
 import L from 'leaflet';
 import { Marker, Popup } from 'react-leaflet';
 
-const statusStyles = {
-  Moving: {
+const gpsStyles = {
+  Online: {
     accent: '#10B981',
     surface: 'bg-[#10B981]/15 text-[#047857]'
   },
-  Idle: {
+  'Last Seen': {
     accent: '#F59E0B',
     surface: 'bg-[#F59E0B]/15 text-[#92400E]'
   },
-  Stopped: {
-    accent: '#64748B',
-    surface: 'bg-[#64748B]/15 text-[#1E293B]'
+  Offline: {
+    accent: '#EF4444',
+    surface: 'bg-[#EF4444]/15 text-[#B91C1C]'
   }
 };
 
-function createVehicleIcon(status) {
-  const style = statusStyles[status] ?? statusStyles.Stopped;
+function createVehicleIcon(gpsStatus) {
+  const style = gpsStyles[gpsStatus] ?? gpsStyles.Offline;
 
   return L.divIcon({
     className: 'vehicle-marker-icon',
@@ -35,8 +35,13 @@ function createVehicleIcon(status) {
 }
 
 export default function VehicleMarker({ vehicle }) {
-  const icon = useMemo(() => createVehicleIcon(vehicle.status), [vehicle.status]);
-  const style = statusStyles[vehicle.status] ?? statusStyles.Stopped;
+  const icon = useMemo(() => createVehicleIcon(vehicle.gpsStatus), [vehicle.gpsStatus]);
+  const style = gpsStyles[vehicle.gpsStatus] ?? gpsStyles.Offline;
+
+  const gpsTimestamp = new Date(vehicle.lastUpdate || 0);
+  const gpsTimeLabel = Number.isNaN(gpsTimestamp.getTime())
+    ? 'Unknown'
+    : gpsTimestamp.toLocaleString();
 
   return (
     <Marker position={[vehicle.lat, vehicle.lng]} icon={icon}>
@@ -56,7 +61,15 @@ export default function VehicleMarker({ vehicle }) {
             </div>
             <div className='flex items-center justify-between gap-3'>
               <span className='text-[#64748B]'>Status</span>
-              <span className={`rounded-full px-2 py-1 font-semibold ${style.surface}`}>{vehicle.status}</span>
+              <span className='rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-700'>{vehicle.status}</span>
+            </div>
+            <div className='flex items-center justify-between gap-3'>
+              <span className='text-[#64748B]'>GPS</span>
+              <span className={`rounded-full px-2 py-1 font-semibold ${style.surface}`}>{vehicle.gpsStatus}</span>
+            </div>
+            <div className='flex items-center justify-between gap-3'>
+              <span className='text-[#64748B]'>Last GPS Update</span>
+              <span className='font-semibold'>{gpsTimeLabel}</span>
             </div>
             <div className='flex items-center justify-between gap-3'>
               <span className='text-[#64748B]'>Speed</span>
