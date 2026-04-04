@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
 
 function unwrapResponse(payload) {
   if (payload && typeof payload === 'object' && 'data' in payload) {
@@ -28,6 +28,9 @@ export const api = {
   getSystem: () => request('/system'),
   getDashboardSummary: () => request('/dashboard/summary'),
   getMapVehicles: () => request('/map/vehicles'),
+  getMapTrips: () => request('/map/trips'),
+  assignDriverToVehicle: (payload) => request('/map/assign', { method: 'POST', body: JSON.stringify(payload) }),
+  updateVehicleTracking: (payload) => request('/map/tracking', { method: 'POST', body: JSON.stringify(payload) }),
   getReports: () => request('/reports'),
   getSettings: () => request('/settings'),
 

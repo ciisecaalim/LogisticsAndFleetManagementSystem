@@ -1,6 +1,21 @@
 const mongoose = require("mongoose");
 const Driver = require("../model/Drivers");
 
+const normalizeDriverPayload = (payload = {}) => {
+  const body = { ...payload };
+  const phone = String(body.phone || body.contactInfo?.phone || '').trim();
+  const email = String(body.email || body.contactInfo?.email || '').trim();
+
+  body.phone = phone;
+  body.email = email;
+  body.contactInfo = {
+    phone,
+    email
+  };
+
+  return body;
+};
+
 const buildDriverQuery = (paramId) => {
   if (paramId === undefined || paramId === null) {
     return null;
@@ -54,7 +69,7 @@ const driverUpdate = async (req, res) => {
       return res.status(400).json({ message: "Invalid driver id" });
     }
 
-    const updated = await Driver.findOneAndUpdate(query, req.body, { new: true });
+    const updated = await Driver.findOneAndUpdate(query, normalizeDriverPayload(req.body), { new: true });
 
     if (!updated) {
       return res.status(404).json({ message: "Driver not found" });
@@ -75,7 +90,7 @@ const driverUpdate = async (req, res) => {
 // ✅ CREATE
 const createDriver = async (req, res) => {
   try {
-    const newdata = new Driver({ ...req.body });
+    const newdata = new Driver(normalizeDriverPayload(req.body));
     const savedata = await newdata.save();
 
     res.status(200).json({

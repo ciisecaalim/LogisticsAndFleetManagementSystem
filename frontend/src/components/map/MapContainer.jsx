@@ -46,7 +46,16 @@ const gpsIcon = L.divIcon({
   popupAnchor: [0, -18]
 });
 
-export default function MapContainer({ vehicles, routePoints, center, zoomKey, selectedStart, selectedEnd, gpsLocation }) {
+export default function MapContainer({
+  vehicles,
+  routePoints,
+  center,
+  zoomKey,
+  selectedStart,
+  selectedEnd,
+  gpsLocation,
+  tripRoutes = []
+}) {
   const startPoint = routePoints[0];
   const endPoint = routePoints[routePoints.length - 1];
   const hasRoute = Array.isArray(routePoints) && routePoints.length > 1;
@@ -73,6 +82,18 @@ export default function MapContainer({ vehicles, routePoints, center, zoomKey, s
           />
         ) : null}
 
+        {tripRoutes.map((route) => (
+          <Polyline
+            key={route.id}
+            positions={route.points}
+            pathOptions={{
+              color: route.color || '#2563EB',
+              weight: 4,
+              opacity: 0.85
+            }}
+          />
+        ))}
+
         {hasRoute ? (
           <Marker position={startPoint} icon={endpointIcons.start}>
             <Popup>
@@ -84,6 +105,17 @@ export default function MapContainer({ vehicles, routePoints, center, zoomKey, s
           </Marker>
         ) : null}
 
+        {tripRoutes.map((route) => (
+          <Marker key={`${route.id}-start`} position={route.startPoint} icon={endpointIcons.start}>
+            <Popup>
+              <div className='space-y-1'>
+                <p className='m-0 text-sm font-semibold text-[#1E293B]'>Trip Start</p>
+                <p className='m-0 text-xs text-[#64748B]'>{route.startLabel}</p>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+
         {hasRoute ? (
           <Marker position={endPoint} icon={endpointIcons.end}>
             <Popup>
@@ -94,6 +126,17 @@ export default function MapContainer({ vehicles, routePoints, center, zoomKey, s
             </Popup>
           </Marker>
         ) : null}
+
+        {tripRoutes.map((route) => (
+          <Marker key={`${route.id}-end`} position={route.endPoint} icon={endpointIcons.end}>
+            <Popup>
+              <div className='space-y-1'>
+                <p className='m-0 text-sm font-semibold text-[#1E293B]'>Trip Destination</p>
+                <p className='m-0 text-xs text-[#64748B]'>{route.endLabel}</p>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
 
         {gpsLocation ? (
           <Marker position={[gpsLocation.lat, gpsLocation.lng]} icon={gpsIcon}>

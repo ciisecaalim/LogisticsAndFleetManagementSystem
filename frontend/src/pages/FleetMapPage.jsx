@@ -1,124 +1,123 @@
 import { useEffect, useMemo, useState } from 'react';
 import 'leaflet/dist/leaflet.css';
-import { Activity, MapPinned, RefreshCw, Search, TriangleAlert, Truck } from 'lucide-react';
+import { Activity, BellRing, MapPinned, RefreshCw, Search, TriangleAlert, Truck } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import FleetMapContainer from '../components/map/MapContainer';
-import api from '../services/api';
+import api, { API_BASE_URL } from '../services/api';
 
 const MAP_CACHE_KEY = 'lfms_map_vehicles_live';
-const DEFAULT_CENTER = [2.067, 45.084];
-const STATUS_FILTERS = ['All', 'Active', 'Idle', 'In Maintenance'];
-const TYPE_FILTERS = ['All', 'Car', 'Bus', 'Van', 'Moto', 'Truck'];
-
-function normalizeType(type) {
-  const key = String(type || '')
-    .trim()
-    .toLowerCase();
-
-  if (key === 'truck') {
-    return 'Truck';
-  }
-
-  if (key === 'moto' || key === 'motor' || key === 'motorcycle' || key === 'bike') {
-    return 'Moto';
-  }
-
-  if (key === 'van') {
-    return 'Van';
-  }
-
-  if (key === 'car') {
-    return 'Car';
-  }
-
-  if (key === 'bus') {
-    return 'Bus';
-  }
-
-  return 'Van';
-}
-
-function getGpsStatus(lastUpdate, businessStatus) {
-  const timestamp = new Date(lastUpdate || 0).getTime();
-
-  if (Number.isNaN(timestamp) || timestamp <= 0) {
-    return 'Offline';
-  }
-
-  const ageMs = Date.now() - timestamp;
-
-  if (ageMs < 60 * 1000) {
-    return 'Online';
-  }
-
-  if (businessStatus === 'Idle' || ageMs < 5 * 60 * 1000) {
-    return 'Last Seen';
-  }
-
-  return 'Offline';
-}
+const TRIPS_CACHE_KEY = 'lfms_map_trips_live';
+const DEFAULT_CENTER = [40.7128, -74.006];
+const STATUS_FILTERS = ['All', 'Available', 'Assigned', 'Off'];
 
 function normalizeVehicle(item) {
-  const status = item.status || 'Idle';
-  const lastUpdate = item.lastUpdate || item.gps?.lastUpdate || item.updatedAt || new Date().toISOString();
-
   return {
-    id: item.id || item._id || item.plateNumber || item.name,
+    id: item.id || item._id || item.vehicleId || item.plateNumber,
+    vehicleId: item.vehicleId || item.id || item._id,
+    trackerId: item.trackerId || '',
     plateNumber: item.plateNumber || item.name || 'Unknown',
     name: item.plateNumber || item.name || 'Unknown',
-    driver: item.driver || item.assignedDriver || 'Unassigned',
-    status,
-    type: normalizeType(item.type),
-    location: item.location || 'Unknown route',
-    lat: Number(item.lat ?? item.gps?.lat ?? 0),
-    lng: Number(item.lng ?? item.gps?.lng ?? 0),
+    model: item.model || 'Unknown',
+    driver: item.driver || 'Unassigned',
+    driverId: item.driverId || '',
+    status: item.status || 'Available',
+    gpsStatus: item.gpsStatus || 'Offline',
+    lastUpdate: item.lastUpdate || new Date().toISOString(),
+    location: item.location || 'No assigned route',
+    lat: Number(item.lat ?? 0),
+    lng: Number(item.lng ?? 0),
     speedKmh: Number(item.speedKmh || 0),
     distanceTraveledKm: Number(item.distanceTraveledKm || 0),
     heading: Number(item.heading || 0),
-    lastUpdate,
-    gpsStatus: item.gpsStatus || getGpsStatus(lastUpdate, status)
+    destination: item.destination || null,
+    currentLocation: item.currentLocation || null
   };
 }
 
-function getCachedVehicles() {
+function normalizeTrip(item) {
+  return {
+    id: item.id || item._id || item.tripId,
+    tripId: item.tripId || item.id || item._id,
+    vehicleId: item.vehicleId || '',
+    vehicle: item.vehicle || 'Unknown',
+    driver: item.driver || 'Unassigned',
+    status: item.status || 'Pending',
+    from: item.from || item.startLocation?.label || 'Start',
+    to: item.to || item.destination?.label || 'Destination',
+    departureTime: item.departureTime || null,
+    expectedArrivalTime: item.expectedArrivalTime || null,
+    startLocation: item.startLocation,
+    destination: item.destination,
+    currentLocation: item.currentLocation,
+    progressPercent: Number(item.progressPercent || 0),
+    routeDistanceKm: Number(item.routeDistanceKm || 0),
+    remainingDistanceKm: Number(item.remainingDistanceKm || 0),
+    isDeviation: Boolean(item.isDeviation),
+    reachedDestination: Boolean(item.reachedDestination)
+  };
+}
+
+function readCache(key, normalizer) {
   try {
-    const cached = localStorage.getItem(MAP_CACHE_KEY);
+    const cached = localStorage.getItem(key);
     if (!cached) {
       return [];
     }
 
     const parsed = JSON.parse(cached);
-    return Array.isArray(parsed) ? parsed.map(normalizeVehicle) : [];
+    return Array.isArray(parsed) ? parsed.map(normalizer) : [];
   } catch {
     return [];
   }
+}
+
+function saveCache(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+function getNotificationTone(level) {
+  if (level === 'warning') {
+    return 'border-amber-200 bg-amber-50 text-amber-700';
+  }
+
+  if (level === 'success') {
+    return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+  }
+
+  return 'border-slate-200 bg-slate-50 text-slate-700';
 }
 
 export default function FleetMapPage() {
   const [searchParams] = useSearchParams();
   const focusPlate = searchParams.get('plate') || '';
 
-  const [vehicles, setVehicles] = useState(getCachedVehicles);
+  const [vehicles, setVehicles] = useState(() => readCache(MAP_CACHE_KEY, normalizeVehicle));
+  const [trips, setTrips] = useState(() => readCache(TRIPS_CACHE_KEY, normalizeTrip));
+  const [notifications, setNotifications] = useState([]);
   const [loadError, setLoadError] = useState('');
   const [lastRefreshAt, setLastRefreshAt] = useState(null);
   const [searchTerm, setSearchTerm] = useState(focusPlate);
   const [statusFilter, setStatusFilter] = useState('All');
-  const [typeFilter, setTypeFilter] = useState('All');
+  const [driverFilter, setDriverFilter] = useState('All');
 
   useEffect(() => {
     let isMounted = true;
 
-    async function refreshMapData() {
+    async function loadInitialData() {
       try {
-        const data = await api.getMapVehicles();
+        const [vehicleData, tripData] = await Promise.all([api.getMapVehicles(), api.getMapTrips()]);
 
-        if (!isMounted || !Array.isArray(data)) {
+        if (!isMounted) {
           return;
         }
 
-        const normalized = data.map(normalizeVehicle);
-        setVehicles(normalized);
-        localStorage.setItem(MAP_CACHE_KEY, JSON.stringify(normalized));
+        const normalizedVehicles = Array.isArray(vehicleData) ? vehicleData.map(normalizeVehicle) : [];
+        const normalizedTrips = Array.isArray(tripData) ? tripData.map(normalizeTrip) : [];
+
+        setVehicles(normalizedVehicles);
+        setTrips(normalizedTrips);
+        saveCache(MAP_CACHE_KEY, normalizedVehicles);
+        saveCache(TRIPS_CACHE_KEY, normalizedTrips);
         setLastRefreshAt(new Date());
         setLoadError('');
       } catch {
@@ -128,12 +127,45 @@ export default function FleetMapPage() {
       }
     }
 
-    refreshMapData();
-    const timerId = window.setInterval(refreshMapData, 10000);
+    loadInitialData();
 
     return () => {
       isMounted = false;
-      window.clearInterval(timerId);
+    };
+  }, []);
+
+  useEffect(() => {
+    const stream = new EventSource(`${API_BASE_URL}/map/stream`);
+
+    stream.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data || '{}');
+        const incomingVehicles = Array.isArray(payload.vehicles) ? payload.vehicles.map(normalizeVehicle) : [];
+        const incomingTrips = Array.isArray(payload.trips) ? payload.trips.map(normalizeTrip) : [];
+        const incomingNotifications = Array.isArray(payload.notifications) ? payload.notifications : [];
+
+        setVehicles(incomingVehicles);
+        setTrips(incomingTrips);
+        saveCache(MAP_CACHE_KEY, incomingVehicles);
+        saveCache(TRIPS_CACHE_KEY, incomingTrips);
+
+        if (incomingNotifications.length) {
+          setNotifications((prev) => [...incomingNotifications, ...prev].slice(0, 6));
+        }
+
+        setLastRefreshAt(new Date());
+        setLoadError('');
+      } catch {
+        // Ignore malformed stream data and keep stream alive.
+      }
+    };
+
+    stream.onerror = () => {
+      setLoadError('Real-time stream interrupted. Reconnecting...');
+    };
+
+    return () => {
+      stream.close();
     };
   }, []);
 
@@ -143,14 +175,19 @@ export default function FleetMapPage() {
     }
   }, [focusPlate]);
 
+  const driverOptions = useMemo(() => {
+    const names = new Set(vehicles.map((vehicle) => vehicle.driver).filter(Boolean));
+    return ['All', ...Array.from(names).sort((a, b) => a.localeCompare(b))];
+  }, [vehicles]);
+
   const filteredVehicles = useMemo(() => {
     const needle = searchTerm.trim().toLowerCase();
 
     return vehicles.filter((vehicle) => {
       const byStatus = statusFilter === 'All' ? true : vehicle.status === statusFilter;
-      const byType = typeFilter === 'All' ? true : vehicle.type === typeFilter;
+      const byDriver = driverFilter === 'All' ? true : vehicle.driver === driverFilter;
 
-      if (!byStatus || !byType) {
+      if (!byStatus || !byDriver) {
         return false;
       }
 
@@ -158,10 +195,10 @@ export default function FleetMapPage() {
         return true;
       }
 
-      const haystack = `${vehicle.plateNumber} ${vehicle.driver} ${vehicle.status} ${vehicle.type} ${vehicle.location}`.toLowerCase();
+      const haystack = `${vehicle.plateNumber} ${vehicle.driver} ${vehicle.status} ${vehicle.location} ${vehicle.model}`.toLowerCase();
       return haystack.includes(needle);
     });
-  }, [vehicles, searchTerm, statusFilter, typeFilter]);
+  }, [vehicles, searchTerm, statusFilter, driverFilter]);
 
   const highlightedVehicle = useMemo(() => {
     if (!focusPlate) {
@@ -187,12 +224,42 @@ export default function FleetMapPage() {
     return DEFAULT_CENTER;
   }, [filteredVehicles, highlightedVehicle]);
 
-  const totalCount = vehicles.length;
-  const onlineCount = vehicles.filter((vehicle) => vehicle.gpsStatus === 'Online').length;
-  const lastSeenCount = vehicles.filter((vehicle) => vehicle.gpsStatus === 'Last Seen').length;
-  const offlineCount = vehicles.filter((vehicle) => vehicle.gpsStatus === 'Offline').length;
+  const routeColors = {
+    Ongoing: '#2563EB',
+    Pending: '#F59E0B',
+    Completed: '#10B981'
+  };
 
-  const mapZoomKey = `${mapCenter[0]}-${mapCenter[1]}-${searchTerm}-${statusFilter}-${typeFilter}-${filteredVehicles.length}`;
+  const tripRoutes = useMemo(
+    () =>
+      trips
+        .filter((trip) => trip.startLocation && trip.destination)
+        .map((trip) => {
+          const points = [
+            [Number(trip.startLocation.lat), Number(trip.startLocation.lng)],
+            [Number(trip.currentLocation?.lat ?? trip.startLocation.lat), Number(trip.currentLocation?.lng ?? trip.startLocation.lng)],
+            [Number(trip.destination.lat), Number(trip.destination.lng)]
+          ];
+
+          return {
+            id: trip.id,
+            points,
+            startPoint: points[0],
+            endPoint: points[points.length - 1],
+            startLabel: trip.from,
+            endLabel: trip.to,
+            color: routeColors[trip.status] || '#2563EB'
+          };
+        }),
+    [trips]
+  );
+
+  const totalCount = vehicles.length;
+  const availableCount = vehicles.filter((vehicle) => vehicle.status === 'Available').length;
+  const assignedCount = vehicles.filter((vehicle) => vehicle.status === 'Assigned').length;
+  const offCount = vehicles.filter((vehicle) => vehicle.status === 'Off').length;
+
+  const mapZoomKey = `${mapCenter[0]}-${mapCenter[1]}-${searchTerm}-${statusFilter}-${driverFilter}-${filteredVehicles.length}`;
 
   return (
     <section className='space-y-5 pb-4'>
@@ -203,16 +270,16 @@ export default function FleetMapPage() {
               <MapPinned size={14} />
               Fleet GPS Monitor
             </p>
-            <h1 className='m-0 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl'>Dedicated Map Page</h1>
+            <h1 className='m-0 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl'>Real-Time Fleet Map</h1>
             <p className='mt-1 text-sm text-slate-600'>
-              Live map updates every 10 seconds. GPS online/offline is calculated independently from vehicle status.
+              Live stream tracks vehicle GPS, route progress, and destination/deviation events.
             </p>
           </div>
 
           <div className='rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600'>
             <p className='m-0 inline-flex items-center gap-2 font-semibold'>
               <RefreshCw size={14} />
-              Auto refresh: 10s
+              Auto refresh: real-time stream
             </p>
             <p className='m-0 text-xs'>
               Last sync: {lastRefreshAt ? lastRefreshAt.toLocaleTimeString() : 'Waiting for first sync...'}
@@ -220,13 +287,13 @@ export default function FleetMapPage() {
           </div>
         </div>
 
-        <div className='mt-4 grid gap-3 md:grid-cols-3'>
-          <label className='relative md:col-span-1'>
+        <div className='mt-4 grid gap-3 md:grid-cols-4'>
+          <label className='relative md:col-span-2'>
             <Search size={16} className='pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400' />
             <input
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder='Search plate, driver, status, type...'
+              placeholder='Search plate, driver, status, route...'
               className='w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 outline-none transition focus:border-blue-400'
             />
           </label>
@@ -244,13 +311,13 @@ export default function FleetMapPage() {
           </select>
 
           <select
-            value={typeFilter}
-            onChange={(event) => setTypeFilter(event.target.value)}
+            value={driverFilter}
+            onChange={(event) => setDriverFilter(event.target.value)}
             className='rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-400'
           >
-            {TYPE_FILTERS.map((type) => (
-              <option key={type} value={type}>
-                {type}
+            {driverOptions.map((driver) => (
+              <option key={driver} value={driver}>
+                {driver}
               </option>
             ))}
           </select>
@@ -258,20 +325,20 @@ export default function FleetMapPage() {
 
         <div className='mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4'>
           <div className='rounded-xl border border-slate-200 bg-slate-50 p-3'>
-            <p className='m-0 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500'>Total</p>
+            <p className='m-0 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500'>Total Vehicles</p>
             <p className='m-0 text-2xl font-bold text-slate-900'>{totalCount}</p>
           </div>
           <div className='rounded-xl border border-emerald-200 bg-emerald-50 p-3'>
-            <p className='m-0 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700'>Online GPS</p>
-            <p className='m-0 text-2xl font-bold text-emerald-800'>{onlineCount}</p>
+            <p className='m-0 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700'>Available</p>
+            <p className='m-0 text-2xl font-bold text-emerald-800'>{availableCount}</p>
           </div>
-          <div className='rounded-xl border border-amber-200 bg-amber-50 p-3'>
-            <p className='m-0 text-xs font-semibold uppercase tracking-[0.18em] text-amber-700'>Last Seen</p>
-            <p className='m-0 text-2xl font-bold text-amber-800'>{lastSeenCount}</p>
+          <div className='rounded-xl border border-blue-200 bg-blue-50 p-3'>
+            <p className='m-0 text-xs font-semibold uppercase tracking-[0.18em] text-blue-700'>Assigned</p>
+            <p className='m-0 text-2xl font-bold text-blue-800'>{assignedCount}</p>
           </div>
           <div className='rounded-xl border border-red-200 bg-red-50 p-3'>
-            <p className='m-0 text-xs font-semibold uppercase tracking-[0.18em] text-red-700'>Offline</p>
-            <p className='m-0 text-2xl font-bold text-red-800'>{offlineCount}</p>
+            <p className='m-0 text-xs font-semibold uppercase tracking-[0.18em] text-red-700'>Off</p>
+            <p className='m-0 text-2xl font-bold text-red-800'>{offCount}</p>
           </div>
         </div>
       </header>
@@ -283,12 +350,70 @@ export default function FleetMapPage() {
         </p>
       ) : null}
 
+      {notifications.length > 0 ? (
+        <section className='rounded-2xl border border-slate-200 bg-white p-4 shadow-sm'>
+          <h2 className='m-0 inline-flex items-center gap-2 text-lg font-semibold text-slate-900'>
+            <BellRing size={16} />
+            Fleet Notifications
+          </h2>
+          <div className='mt-3 grid gap-2'>
+            {notifications.map((notification) => (
+              <div
+                key={notification.id}
+                className={`rounded-xl border px-3 py-2 text-sm ${getNotificationTone(notification.level)}`}
+              >
+                <p className='m-0 font-semibold'>{notification.message}</p>
+                <p className='m-0 text-xs opacity-80'>
+                  {new Date(notification.timestamp).toLocaleTimeString()} • {notification.type}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <FleetMapContainer
         vehicles={filteredVehicles}
         routePoints={[]}
         center={mapCenter}
         zoomKey={mapZoomKey}
+        tripRoutes={tripRoutes}
       />
+
+      <section className='rounded-2xl border border-slate-200 bg-white p-4 shadow-sm'>
+        <h2 className='m-0 text-lg font-semibold text-slate-900'>Trip Progress Monitor</h2>
+        <div className='mt-3 grid gap-3'>
+          {trips.slice(0, 10).map((trip) => (
+            <div key={trip.id} className='rounded-xl border border-slate-100 bg-slate-50 p-3'>
+              <div className='flex flex-wrap items-center justify-between gap-2'>
+                <p className='m-0 font-semibold text-slate-900'>
+                  {trip.vehicle} • {trip.driver}
+                </p>
+                <p className='m-0 text-sm text-slate-600'>{trip.status}</p>
+              </div>
+              <p className='m-0 mt-1 text-sm text-slate-600'>
+                {trip.from} {'->'} {trip.to}
+              </p>
+              <div className='mt-2 h-2 rounded-full bg-slate-200'>
+                <div
+                  className='h-2 rounded-full bg-blue-500 transition-all duration-700'
+                  style={{ width: `${Math.max(0, Math.min(100, trip.progressPercent))}%` }}
+                />
+              </div>
+              <p className='m-0 mt-2 inline-flex items-center gap-1 text-xs text-slate-500'>
+                <Activity size={14} />
+                {trip.progressPercent}% complete • Remaining {trip.remainingDistanceKm.toFixed(1)} km
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {trips.length === 0 ? (
+          <p className='mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500'>
+            No trips found for live monitoring.
+          </p>
+        ) : null}
+      </section>
 
       <section className='rounded-2xl border border-slate-200 bg-white p-4 shadow-sm'>
         <h2 className='m-0 text-lg font-semibold text-slate-900'>Live Vehicle Feed</h2>
@@ -296,7 +421,7 @@ export default function FleetMapPage() {
           {filteredVehicles.slice(0, 8).map((vehicle) => (
             <div key={vehicle.id} className='grid gap-2 rounded-xl border border-slate-100 bg-slate-50 p-3 sm:grid-cols-5 sm:items-center'>
               <p className='m-0 font-semibold text-slate-900'>{vehicle.plateNumber}</p>
-              <p className='m-0 text-sm text-slate-600'>Type: {vehicle.type}</p>
+              <p className='m-0 text-sm text-slate-600'>Driver: {vehicle.driver}</p>
               <p className='m-0 text-sm text-slate-600'>Status: {vehicle.status}</p>
               <p className='m-0 text-sm text-slate-600'>GPS: {vehicle.gpsStatus}</p>
               <p className='m-0 inline-flex items-center gap-1 text-sm text-slate-500'>
@@ -317,9 +442,11 @@ export default function FleetMapPage() {
       <div className='rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-600'>
         <p className='m-0 inline-flex items-center gap-2 font-semibold text-slate-800'>
           <Truck size={15} />
-          Optional enhancements enabled in architecture
+          Real-time fleet mode enabled
         </p>
-        <p className='m-0 mt-1'>Route overlays, maintenance alerts, and expanded driver details can be layered on this page without changing core GPS logic.</p>
+        <p className='m-0 mt-1'>
+          Driver assignment, trip overlays, route monitoring, and tracking notifications are synchronized from the live stream.
+        </p>
       </div>
     </section>
   );

@@ -15,6 +15,25 @@ const normalizeVehiclePayload = (payload = {}) => {
     lastUpdate
   };
 
+  body.vehicleId = String(body.vehicleId || '').trim() || undefined;
+  body.trackerId = String(body.trackerId || '').trim() || undefined;
+  body.assignedDriverId = String(body.assignedDriverId || '').trim();
+
+  const currentLabel = String(body.currentLocation?.label || body.currentLocation || '').trim();
+  const destinationLabel = String(body.destination?.label || body.destination || '').trim();
+
+  body.currentLocation = {
+    label: currentLabel,
+    lat: Number(body.currentLocation?.lat ?? lat),
+    lng: Number(body.currentLocation?.lng ?? lng)
+  };
+
+  body.destination = {
+    label: destinationLabel,
+    lat: Number(body.destination?.lat ?? 0),
+    lng: Number(body.destination?.lng ?? 0)
+  };
+
   body.lat = lat;
   body.lng = lng;
   body.lastUpdate = lastUpdate;
