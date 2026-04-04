@@ -22,7 +22,7 @@ import { downloadCsv, parseCsv } from '../utils/csv';
 const VEHICLES_CACHE_KEY = 'lfms_vehicles';
 const PAGE_SIZE = 8;
 const VEHICLE_STATUS_OPTIONS = ['All', 'Active', 'In Maintenance', 'Idle'];
-const VEHICLE_TYPE_OPTIONS = ['Truck', 'Moto', 'Van', 'Bus', 'Car'];
+const VEHICLE_TYPE_OPTIONS = ['Car', 'Bus', 'Van', 'Moto', 'Truck'];
 const VEHICLE_TYPE_FILTER_OPTIONS = ['All', ...VEHICLE_TYPE_OPTIONS];
 const VEHICLE_TYPE_LOOKUP = {
   truck: 'Truck',
@@ -718,19 +718,20 @@ export default function VehiclesPage() {
             </label>
             <label className='grid gap-1 text-sm text-slate-700'>
               Type
-              <input
+              <select
                 name='type'
                 value={formData.type}
                 onChange={onFormChange}
-                list='vehicle-type-options'
                 className='rounded-xl border border-slate-200 px-3 py-2 outline-none transition focus:border-blue-400'
                 required
-              />
-              <datalist id='vehicle-type-options'>
+              >
+                <option value=''>Select type</option>
                 {VEHICLE_TYPE_OPTIONS.map((type) => (
-                  <option key={type} value={type} />
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
                 ))}
-              </datalist>
+              </select>
             </label>
             <label className='grid gap-1 text-sm text-slate-700'>
               Year

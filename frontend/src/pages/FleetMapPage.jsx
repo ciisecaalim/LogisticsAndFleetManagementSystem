@@ -8,7 +8,7 @@ import api from '../services/api';
 const MAP_CACHE_KEY = 'lfms_map_vehicles_live';
 const DEFAULT_CENTER = [2.067, 45.084];
 const STATUS_FILTERS = ['All', 'Active', 'Idle', 'In Maintenance'];
-const TYPE_FILTERS = ['All', 'Truck', 'Moto', 'Van', 'Car', 'Bus'];
+const TYPE_FILTERS = ['All', 'Car', 'Bus', 'Van', 'Moto', 'Truck'];
 
 function normalizeType(type) {
   const key = String(type || '')
