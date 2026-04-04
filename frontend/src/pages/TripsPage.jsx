@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { MapPin, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { Check, MapPin, Pencil, Plus, Trash2, X } from 'lucide-react';
 import api from '../services/api';
 import { downloadCsv, parseCsv } from '../utils/csv';
 
 const TRIPS_CACHE_KEY = 'lfms_trips';
 const TRIP_STATUS_OPTIONS = ['Completed', 'Ongoing', 'Pending'];
+const PAGE_SIZE = 10;
 const EMPTY_TRIP_FORM = {
   vehicle: '',
   driver: '',
@@ -17,11 +18,6 @@ const EMPTY_TRIP_FORM = {
 };
 
 const DISTANCE_UNITS = ['km', 'm', 'mi'];
-const STATUS_PRIORITY = {
-  Pending: 1,
-  Ongoing: 2,
-  Completed: 3
-};
 
 function getCachedTrips() {
   try {
@@ -102,6 +98,31 @@ function getStatusClass(status) {
   return 'bg-[#F59E0B]/20 text-[#92400E]';
 }
 
+function getTripKey(trip) {
+  return trip._id || trip.id || `${trip.vehicle}-${trip.date}`;
+}
+
+function polarToCartesian(centerX, centerY, radius, angleInDegrees) {
+  const angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180;
+  return {
+    x: centerX + radius * Math.cos(angleInRadians),
+    y: centerY + radius * Math.sin(angleInRadians)
+  };
+}
+
+function describePieSlice(centerX, centerY, radius, startAngle, endAngle) {
+  const start = polarToCartesian(centerX, centerY, radius, endAngle);
+  const end = polarToCartesian(centerX, centerY, radius, startAngle);
+  const largeArcFlag = endAngle - startAngle <= 180 ? '0' : '1';
+
+  return [
+    `M ${centerX} ${centerY}`,
+    `L ${start.x} ${start.y}`,
+    `A ${radius} ${radius} 0 ${largeArcFlag} 0 ${end.x} ${end.y}`,
+    'Z'
+  ].join(' ');
+}
+
 export default function TripsPage() {
   const [trips, setTrips] = useState(getCachedTrips);
   const [loading, setLoading] = useState(trips.length === 0);
@@ -114,6 +135,10 @@ export default function TripsPage() {
   const [saving, setSaving] = useState(false);
   const [availableVehicles, setAvailableVehicles] = useState(() => readCache('lfms_trips_vehicles'));
   const [availableDrivers, setAvailableDrivers] = useState(() => readCache('lfms_trips_drivers'));
+  const [sortKey, setSortKey] = useState('date');
+  const [sortDirection, setSortDirection] = useState('desc');
+  const [page, setPage] = useState(1);
+  const [selectedTripIds, setSelectedTripIds] = useState([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -183,6 +208,11 @@ export default function TripsPage() {
   const vehicleOptions = useMemo(
     () =>
       availableVehicles
+        .filter((vehicle) => {
+          const status = String(vehicle?.status || '').trim().toLowerCase();
+          const assignedDriver = String(vehicle?.assignedDriver || '').trim().toLowerCase();
+          return status === 'active' && assignedDriver === 'unassigned';
+        })
         .map((vehicle) => {
           const value = vehicle.plateNumber || vehicle.id || vehicle._id || '';
           if (!value) {
@@ -252,6 +282,7 @@ export default function TripsPage() {
   const driverOptions = useMemo(
     () =>
       availableDrivers
+        .filter((driver) => String(driver?.status || '').trim().toLowerCase() === 'available')
         .map((driver) => {
           const value = driver.name || driver._id || driver.id || '';
 
@@ -272,41 +303,89 @@ export default function TripsPage() {
     () => (statusFilter === 'All' ? trips : trips.filter((trip) => trip.status === statusFilter)),
     [statusFilter, trips]
   );
+  const sortedTrips = useMemo(() => {
+    const direction = sortDirection === 'asc' ? 1 : -1;
+    return [...filteredTrips].sort((a, b) => {
+      const getValue = (item) => {
+        if (sortKey === 'vehicle') {
+          return resolveVehicleLabel(item).toLowerCase();
+        }
+        if (sortKey === 'distance') {
+          return Number(item.distance) || 0;
+        }
+
+        const value = item[sortKey];
+        if (value === undefined || value === null) {
+          return '';
+        }
+        return typeof value === 'string' ? value.toLowerCase() : value;
+      };
+
+      const aval = getValue(a);
+      const bval = getValue(b);
+      if (aval === bval) {
+        return 0;
+      }
+      return direction * (aval > bval ? 1 : -1);
+    });
+  }, [filteredTrips, sortDirection, sortKey]);
+  const totalPages = Math.max(1, Math.ceil(sortedTrips.length / PAGE_SIZE));
+  const normalizedPage = Math.min(Math.max(page, 1), totalPages);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+    if (page < 1) {
+      setPage(1);
+    }
+  }, [page, totalPages]);
+
+  const paginatedTrips = sortedTrips.slice((normalizedPage - 1) * PAGE_SIZE, normalizedPage * PAGE_SIZE);
+  const visibleTripKeys = paginatedTrips.map((trip) => getTripKey(trip));
+  const allDisplayedSelected = visibleTripKeys.length > 0 && visibleTripKeys.every((id) => selectedTripIds.includes(id));
+
+  const toggleSelectAll = () => {
+    if (allDisplayedSelected) {
+      setSelectedTripIds((prev) => prev.filter((id) => !visibleTripKeys.includes(id)));
+      return;
+    }
+
+    setSelectedTripIds((prev) => {
+      const next = [...prev];
+      visibleTripKeys.forEach((id) => {
+        if (!next.includes(id)) {
+          next.push(id);
+        }
+      });
+      return next;
+    });
+  };
+
+  const toggleSelectOne = (tripId) => {
+    setSelectedTripIds((prev) =>
+      prev.includes(tripId) ? prev.filter((id) => id !== tripId) : [...prev, tripId]
+    );
+  };
+
+  const handleSort = (key) => {
+    if (sortKey === key) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+
+    setSortKey(key);
+    setSortDirection('asc');
+  };
 
   const tripStatusColors = {
     Completed: '#10B981',
     Ongoing: '#2563EB',
     Pending: '#F59E0B'
   };
-  const TRIP_CHART_WIDTH = 640;
-  const TRIP_CHART_HEIGHT = 240;
-  const TRIP_CHART_PADDING = 30;
-
-  const tripBars = useMemo(() => {
-    const grouped = {};
-
-    filteredTrips.forEach((trip) => {
-      const dateKey = trip.date || new Date().toISOString().slice(0, 10);
-
-      if (!grouped[dateKey]) {
-        grouped[dateKey] = {
-          label: dateKey,
-          value: 0,
-          status: trip.status || 'Pending'
-        };
-      }
-
-      grouped[dateKey].value += 1;
-      const existingPriority = STATUS_PRIORITY[grouped[dateKey].status] || 0;
-      const incomingPriority = STATUS_PRIORITY[trip.status] || 0;
-
-      if (incomingPriority >= existingPriority) {
-        grouped[dateKey].status = trip.status || 'Pending';
-      }
-    });
-
-    return Object.values(grouped).sort((a, b) => new Date(a.label) - new Date(b.label));
-  }, [trips]);
+  const PIE_SIZE = 260;
+  const PIE_RADIUS = 88;
+  const PIE_CENTER = PIE_SIZE / 2;
 
   const uniqueStores = useMemo(() => {
     const names = new Set();
@@ -338,96 +417,93 @@ export default function TripsPage() {
     { label: 'Ongoing Trips', value: ongoingCount, accent: 'blue' }
   ];
 
-  const maxTripValue = Math.max(...tripBars.map((bar) => bar.value), 1);
-  const tripLevels = [
-    maxTripValue,
-    Math.ceil((maxTripValue * 0.75) || 0),
-    Math.ceil((maxTripValue * 0.5) || 0),
-    Math.ceil((maxTripValue * 0.25) || 0),
-    0
-  ];
-  const hasTripStats = tripBars.length > 0 && tripBars.some((bar) => bar.value > 0);
-  const chartBarCount = tripBars.length;
-  const chartInnerHeight = TRIP_CHART_HEIGHT - TRIP_CHART_PADDING * 2;
-  const barWidth = chartBarCount
-    ? Math.min(84, Math.max(chartInnerHeight / 2, 32))
-    : 32;
-  const gap = chartBarCount > 0 ? Math.min(24, Math.max(barWidth * 0.4, 10)) : 0;
-  const chartBarsWithPosition = chartBarCount
-    ? tripBars.map((bar, index) => {
-        const height = (bar.value / maxTripValue) * chartInnerHeight;
-        const y = TRIP_CHART_PADDING + chartInnerHeight - height;
-        const x = TRIP_CHART_PADDING + gap + index * (barWidth + gap);
+  const tripStatusBreakdown = useMemo(() => {
+    const counts = {
+      Completed: 0,
+      Ongoing: 0,
+      Pending: 0
+    };
+
+    filteredTrips.forEach((trip) => {
+      const status = trip.status || 'Pending';
+      if (counts[status] === undefined) {
+        counts.Pending += 1;
+        return;
+      }
+      counts[status] += 1;
+    });
+
+    return ['Completed', 'Ongoing', 'Pending'].map((status) => ({
+      status,
+      count: counts[status],
+      color: tripStatusColors[status]
+    }));
+  }, [filteredTrips]);
+
+  const totalTripStatusCount = tripStatusBreakdown.reduce((sum, item) => sum + item.count, 0);
+  const hasTripStats = totalTripStatusCount > 0;
+
+  const pieSlices = useMemo(() => {
+    if (!hasTripStats) {
+      return [];
+    }
+
+    let runningAngle = -90;
+    return tripStatusBreakdown
+      .filter((item) => item.count > 0)
+      .map((item) => {
+        const sweep = (item.count / totalTripStatusCount) * 360;
+        const startAngle = runningAngle;
+        const endAngle = runningAngle + sweep;
+        const midAngle = startAngle + sweep / 2;
+        const labelPosition = polarToCartesian(PIE_CENTER, PIE_CENTER, PIE_RADIUS * 0.62, midAngle + 90);
+        runningAngle = endAngle;
+
         return {
-          ...bar,
-          height,
-          y,
-          x,
-          color: tripStatusColors[bar.status] || tripStatusColors.Pending
+          ...item,
+          path: describePieSlice(PIE_CENTER, PIE_CENTER, PIE_RADIUS, startAngle, endAngle),
+          labelX: labelPosition.x,
+          labelY: labelPosition.y,
+          percent: Math.round((item.count / totalTripStatusCount) * 100)
         };
-      })
-    : [];
-  const computedChartWidth = chartBarCount
-    ? TRIP_CHART_PADDING * 2 + gap + chartBarCount * (barWidth + gap)
-    : TRIP_CHART_WIDTH;
-  const svgWidth = Math.max(computedChartWidth, TRIP_CHART_WIDTH / 2, TRIP_CHART_PADDING * 2 + barWidth + gap);
+      });
+  }, [hasTripStats, totalTripStatusCount, tripStatusBreakdown]);
+
   const statsSection = (
     <article className='rounded-[36px] border border-[#dce2f0] bg-white px-6 py-6 shadow-[0_20px_50px_rgba(15,23,42,0.08)]'>
       <h2 className='text-xl font-semibold text-[#1E293B]'>Trip Statistics</h2>
       <div className='mt-5 rounded-[26px] border border-dashed border-[#dce2f0] bg-white/70 p-6 shadow-sm'>
-        <div className='relative h-[260px] w-full overflow-hidden'>
+        <div className='relative flex h-[260px] w-full items-center justify-center overflow-hidden'>
           <svg
-            viewBox={`0 0 ${svgWidth} ${TRIP_CHART_HEIGHT}`}
-            preserveAspectRatio='none'
-            className='h-full w-full'
+            viewBox={`0 0 ${PIE_SIZE} ${PIE_SIZE}`}
+            preserveAspectRatio='xMidYMid meet'
+            className='h-full w-full max-w-[340px]'
           >
-            {tripLevels.map((level) => {
-              const normalized = level / maxTripValue;
-              const y = TRIP_CHART_PADDING + chartInnerHeight - normalized * chartInnerHeight;
+            <circle cx={PIE_CENTER} cy={PIE_CENTER} r={PIE_RADIUS} fill='#f1f5f9' />
 
-              return (
-                <line
-                  key={`grid-${level}`}
-                  x1={TRIP_CHART_PADDING}
-                  x2={svgWidth - TRIP_CHART_PADDING}
-                  y1={y}
-                  y2={y}
-                  stroke='#d7dde7'
-                  strokeWidth={1}
-                  strokeDasharray='4'
-                />
-              );
-            })}
-
-            {chartBarsWithPosition.map((bar) => (
-              <rect
-                key={`${bar.label}-${bar.status}`}
-                x={bar.x}
-                y={bar.y}
-                width={barWidth}
-                height={Math.max(bar.height, 4)}
-                rx={8}
-                fill={bar.color}
-              />
+            {pieSlices.map((slice) => (
+              <path key={`slice-${slice.status}`} d={slice.path} fill={slice.color} stroke='#ffffff' strokeWidth='2' />
             ))}
 
-            {chartBarsWithPosition.map((bar) => (
+            {pieSlices.map((slice) => (
               <text
-                key={`label-${bar.label}-${bar.status}`}
-                x={bar.x + barWidth / 2}
-                y={TRIP_CHART_HEIGHT - 8}
+                key={`slice-label-${slice.status}`}
+                x={slice.labelX}
+                y={slice.labelY}
                 textAnchor='middle'
-                fontSize='12'
-                fill='#64748B'
+                dominantBaseline='middle'
+                fontSize='13'
+                fontWeight='700'
+                fill='#ffffff'
               >
-                {bar.label}
+                {slice.percent}%
               </text>
             ))}
 
             {!hasTripStats ? (
               <text
-                x={TRIP_CHART_WIDTH / 2}
-                y={TRIP_CHART_HEIGHT / 2}
+                x={PIE_CENTER}
+                y={PIE_CENTER}
                 textAnchor='middle'
                 fontSize='13'
                 fill='#64748B'
@@ -440,18 +516,12 @@ export default function TripsPage() {
       </div>
       {hasTripStats ? (
         <div className='mt-4 flex items-center justify-center gap-8 text-xs font-semibold text-[#1E293B]'>
-          <span className='flex items-center gap-2 text-[#10B981]'>
-            <span className='h-2.5 w-2.5 rounded-full bg-[#10B981]' />
-            Completed
-          </span>
-          <span className='flex items-center gap-2 text-[#2563EB]'>
-            <span className='h-2.5 w-2.5 rounded-full bg-[#2563EB]' />
-            Ongoing
-          </span>
-          <span className='flex items-center gap-2 text-[#F59E0B]'>
-            <span className='h-2.5 w-2.5 rounded-full bg-[#F59E0B]' />
-            Pending
-          </span>
+          {tripStatusBreakdown.map((item) => (
+            <span key={`legend-${item.status}`} className='flex items-center gap-2' style={{ color: item.color }}>
+              <span className='h-2.5 w-2.5 rounded-full' style={{ backgroundColor: item.color }} />
+              {item.status} ({item.count})
+            </span>
+          ))}
         </div>
       ) : null}
     </article>
@@ -584,7 +654,7 @@ export default function TripsPage() {
                 downloadCsv({
                   columns: [
                     { key: 'vehicle', label: 'Vehicle' },
-                    { key: 'driver', label: 'Driver' },
+                    { key: 'driver', label: 'Assigned Driver' },
                     { key: 'from', label: 'From' },
                     { key: 'to', label: 'To' },
                     { key: 'date', label: 'Date' },
@@ -593,9 +663,9 @@ export default function TripsPage() {
                   ],
                 data: statusFilter === 'All' ? trips : trips.filter((trip) => trip.status === statusFilter),
                   filename:
-                    exportFilter === 'All'
+                    statusFilter === 'All'
                       ? 'trips.csv'
-                      : `trips-${exportFilter.toLowerCase().replace(/\s+/g, '-')}.csv`
+                      : `trips-${statusFilter.toLowerCase().replace(/\s+/g, '-')}.csv`
                 })
               }
               className='inline-flex items-center gap-2 rounded-xl border border-[#64748B]/20 bg-white px-4 py-2 text-sm font-semibold text-[#1E293B]'
@@ -635,7 +705,7 @@ export default function TripsPage() {
                 const text = await file.text();
                 const rows = parseCsv(text, [
                   { key: 'vehicle', label: 'Vehicle' },
-                  { key: 'driver', label: 'Driver' },
+                  { key: 'driver', label: 'Assigned Driver' },
                   { key: 'from', label: 'From' },
                   { key: 'to', label: 'To' },
                   { key: 'date', label: 'Date' },
@@ -691,7 +761,10 @@ export default function TripsPage() {
             className={`rounded-2xl border border-[#64748B]/20 bg-white p-4 shadow-lg shadow-slate-900/5`}
           >
             <p className='text-xs font-semibold uppercase tracking-[0.3em] text-[#64748B]'>{box.label}</p>
-            <p className={`mt-2 text-3xl font-extrabold ${box.accent === 'emerald' ? 'text-[#10B981]' : box.accent === 'amber' ? 'text-[#F59E0B]' : 'text-[#2563EB]'}`}>
+            <p
+              className={`mt-2 font-extrabold ${box.accent === 'emerald' ? 'text-[#10B981]' : box.accent === 'amber' ? 'text-[#F59E0B]' : 'text-[#2563EB]'}`}
+              style={{ fontSize: '2em' }}
+            >
               {box.value}
             </p>
           </article>
@@ -727,7 +800,7 @@ export default function TripsPage() {
               </select>
             </label>
             <label className='grid gap-1 text-sm text-[#1E293B]'>
-              Driver
+              Assigned Driver
               <select
                 name='driver'
                 value={formData.driver}
@@ -846,24 +919,66 @@ export default function TripsPage() {
 
         <div className='mt-6 overflow-x-auto'>
           <div className='min-w-280'>
-            <div className='grid grid-cols-[1.8fr_0.9fr_1.4fr_0.9fr_0.7fr_0.8fr_0.8fr] border-b border-[#64748B]/20 px-3 py-3 text-left text-sm font-semibold text-[#1E293B] lg:text-base'>
-              <div>Vehicle</div>
-              <div>Driver</div>
-              <div>Route</div>
-              <div>Date</div>
-              <div>Distance</div>
-              <div>Status</div>
-              <div>Actions</div>
-            </div>
-
             {loading && trips.length === 0 ? <p className='px-3 py-5 text-sm text-[#64748B]'>Loading trips...</p> : null}
             {!loading && trips.length === 0 ? <p className='px-3 py-5 text-sm text-[#64748B]'>No trips found.</p> : null}
 
-            {trips.map((trip) => (
+            {!loading && trips.length > 0 && filteredTrips.length === 0 ? (
+              <p className='px-3 py-5 text-sm text-[#64748B]'>No trips match the current filter.</p>
+            ) : null}
+
+            <div className='grid grid-cols-[0.6fr_1.8fr_0.9fr_1.4fr_0.9fr_0.7fr_0.8fr_0.8fr] border-b border-[#64748B]/20 px-3 py-3 text-left text-sm font-semibold text-[#1E293B] lg:text-base'>
+              <div className='flex justify-center'>
+                <button
+                  type='button'
+                  aria-label='Select all trips'
+                  onClick={toggleSelectAll}
+                  className={`grid h-5 w-5 place-items-center rounded-full border transition ${
+                    allDisplayedSelected ? 'bg-[#10B981] border-[#10B981] text-white' : 'border-[#cbd5f5]'
+                  }`}
+                >
+                  {allDisplayedSelected ? <Check size={12} strokeWidth={3} /> : null}
+                </button>
+              </div>
+              <button type='button' onClick={() => handleSort('vehicle')} className='text-left'>
+                Vehicle {sortKey === 'vehicle' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
+              <button type='button' onClick={() => handleSort('driver')} className='text-left'>
+                Assigned Driver {sortKey === 'driver' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
+              <button type='button' onClick={() => handleSort('from')} className='text-left'>
+                Route {sortKey === 'from' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
+              <button type='button' onClick={() => handleSort('date')} className='text-left'>
+                Date {sortKey === 'date' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
+              <button type='button' onClick={() => handleSort('distance')} className='text-left'>
+                Distance {sortKey === 'distance' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
+              <button type='button' onClick={() => handleSort('status')} className='text-left'>
+                Status {sortKey === 'status' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
+              <div>Actions</div>
+            </div>
+
+            {paginatedTrips.map((trip) => {
+              const tripKey = getTripKey(trip);
+              const isSelected = selectedTripIds.includes(tripKey);
+              return (
               <div
-                key={trip._id || trip.id || `${trip.vehicle}-${trip.date}`}
-                className='grid grid-cols-[1.8fr_0.9fr_1.4fr_0.9fr_0.7fr_0.8fr_0.8fr] border-b border-[#64748B]/20 px-3 py-4'
+                key={tripKey}
+                className='grid grid-cols-[0.6fr_1.8fr_0.9fr_1.4fr_0.9fr_0.7fr_0.8fr_0.8fr] border-b border-[#64748B]/20 px-3 py-4'
               >
+                <div className='flex justify-center'>
+                  <button
+                    type='button'
+                    onClick={() => toggleSelectOne(tripKey)}
+                    className={`grid h-5 w-5 place-items-center rounded-full border transition ${
+                      isSelected ? 'bg-[#10B981] border-[#10B981] text-white' : 'border-[#cbd5f5]'
+                    }`}
+                  >
+                    {isSelected ? <Check size={12} strokeWidth={3} /> : null}
+                  </button>
+                </div>
                 <div className='text-sm font-semibold text-[#1E293B] lg:text-base'>{resolveVehicleLabel(trip)}</div>
                 <div className='text-sm text-[#1E293B] lg:text-base'>{trip.driver}</div>
                 <div className='space-y-1'>
@@ -899,7 +1014,32 @@ export default function TripsPage() {
                   </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
+          </div>
+        </div>
+
+        <div className='mt-4 flex items-center justify-between gap-3 border-t border-[#64748B]/20 pt-4'>
+          <p className='text-sm font-medium text-[#475569]'>
+            Page {normalizedPage} of {totalPages} • Showing {paginatedTrips.length} of {sortedTrips.length}
+          </p>
+          <div className='flex items-center gap-2'>
+            <button
+              type='button'
+              onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+              disabled={normalizedPage <= 1}
+              className='rounded-lg border border-[#64748B]/25 bg-white px-3 py-1.5 text-sm font-semibold text-[#1E293B] disabled:cursor-not-allowed disabled:opacity-50'
+            >
+              Prev
+            </button>
+            <button
+              type='button'
+              onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
+              disabled={normalizedPage >= totalPages}
+              className='rounded-lg border border-[#64748B]/25 bg-white px-3 py-1.5 text-sm font-semibold text-[#1E293B] disabled:cursor-not-allowed disabled:opacity-50'
+            >
+              Next
+            </button>
           </div>
         </div>
       </article>

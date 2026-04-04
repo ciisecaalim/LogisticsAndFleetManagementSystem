@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, Pencil, Plus, Trash2, Wrench, X } from 'lucide-react';
+import { AlertCircle, Check, Pencil, Plus, Trash2, Wrench, X } from 'lucide-react';
 import api from '../services/api';
 import { downloadCsv, parseCsv } from '../utils/csv';
 
@@ -7,6 +7,7 @@ const MAINTENANCE_CACHE_KEY = 'lfms_maintenance';
 const MAINTENANCE_VEHICLES_CACHE = 'lfms_maintenance_vehicles';
 const MAINTENANCE_TYPES = ['Repair', 'Inspection', 'Service'];
 const MAINTENANCE_STATUS = ['Pending', 'Completed', 'In Review'];
+const PAGE_SIZE = 10;
 const EMPTY_MAINTENANCE_FORM = {
   date: new Date().toISOString().slice(0, 10),
   vehicle: '',
@@ -76,6 +77,10 @@ function getStatusClass(status) {
   return 'bg-[#64748B]/20 text-[#1D4ED8]';
 }
 
+function getRecordKey(record) {
+  return record._id || record.id || `${record.vehicle}-${record.date}`;
+}
+
 export default function MaintenancePage() {
   const [records, setRecords] = useState(getCachedMaintenance);
   const [loading, setLoading] = useState(records.length === 0);
@@ -85,6 +90,10 @@ export default function MaintenancePage() {
   const [editingId, setEditingId] = useState('');
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef(null);
+  const [sortKey, setSortKey] = useState('date');
+  const [sortDirection, setSortDirection] = useState('desc');
+  const [page, setPage] = useState(1);
+  const [selectedRecordIds, setSelectedRecordIds] = useState([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -120,6 +129,78 @@ export default function MaintenancePage() {
 
   const totalCost = useMemo(() => records.reduce((sum, row) => sum + Number(row.cost || 0), 0), [records]);
   const pendingCount = useMemo(() => records.filter((row) => row.status === 'Pending').length, [records]);
+  const sortedRecords = useMemo(() => {
+    const direction = sortDirection === 'asc' ? 1 : -1;
+    return [...records].sort((a, b) => {
+      const getValue = (item) => {
+        const value = item[sortKey];
+        if (value === undefined || value === null) {
+          return '';
+        }
+        if (sortKey === 'cost') {
+          return Number(value) || 0;
+        }
+        return typeof value === 'string' ? value.toLowerCase() : value;
+      };
+
+      const aval = getValue(a);
+      const bval = getValue(b);
+      if (aval === bval) {
+        return 0;
+      }
+      return direction * (aval > bval ? 1 : -1);
+    });
+  }, [records, sortDirection, sortKey]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedRecords.length / PAGE_SIZE));
+  const normalizedPage = Math.min(Math.max(page, 1), totalPages);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+    if (page < 1) {
+      setPage(1);
+    }
+  }, [page, totalPages]);
+
+  const paginatedRecords = sortedRecords.slice((normalizedPage - 1) * PAGE_SIZE, normalizedPage * PAGE_SIZE);
+  const visibleRecordKeys = paginatedRecords.map((record) => getRecordKey(record));
+  const allDisplayedSelected =
+    visibleRecordKeys.length > 0 && visibleRecordKeys.every((id) => selectedRecordIds.includes(id));
+
+  const toggleSelectAll = () => {
+    if (allDisplayedSelected) {
+      setSelectedRecordIds((prev) => prev.filter((id) => !visibleRecordKeys.includes(id)));
+      return;
+    }
+
+    setSelectedRecordIds((prev) => {
+      const next = [...prev];
+      visibleRecordKeys.forEach((id) => {
+        if (!next.includes(id)) {
+          next.push(id);
+        }
+      });
+      return next;
+    });
+  };
+
+  const toggleSelectOne = (recordId) => {
+    setSelectedRecordIds((prev) =>
+      prev.includes(recordId) ? prev.filter((id) => id !== recordId) : [...prev, recordId]
+    );
+  };
+
+  const handleSort = (key) => {
+    if (sortKey === key) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+
+    setSortKey(key);
+    setSortDirection('asc');
+  };
 
   function openAddForm() {
     setFormMode('add');
@@ -423,7 +504,7 @@ export default function MaintenancePage() {
             </span>
             <div>
               <p className='m-0 text-lg font-semibold text-[#64748B]'>Total Cost</p>
-              <p className='mt-1 text-3xl leading-none font-bold text-[#1E293B]'>${totalCost.toFixed(2)}</p>
+              <p className='mt-1 leading-none font-bold text-[#1E293B]' style={{ fontSize: '2em' }}>${totalCost.toFixed(2)}</p>
             </div>
           </div>
         </article>
@@ -435,7 +516,7 @@ export default function MaintenancePage() {
             </span>
             <div>
               <p className='m-0 text-lg font-semibold text-[#64748B]'>Pending</p>
-              <p className='mt-1 text-3xl leading-none font-bold text-[#1E293B]'>{pendingCount}</p>
+              <p className='mt-1 leading-none font-bold text-[#1E293B]' style={{ fontSize: '2em' }}>{pendingCount}</p>
             </div>
           </div>
         </article>
@@ -447,7 +528,7 @@ export default function MaintenancePage() {
             </span>
             <div>
               <p className='m-0 text-lg font-semibold text-[#64748B]'>Total Records</p>
-              <p className='mt-1 text-3xl leading-none font-bold text-[#1E293B]'>{records.length}</p>
+              <p className='mt-1 leading-none font-bold text-[#1E293B]' style={{ fontSize: '2em' }}>{records.length}</p>
             </div>
           </div>
         </article>
@@ -458,25 +539,65 @@ export default function MaintenancePage() {
 
         <div className='mt-6 overflow-x-auto'>
           <div className='min-w-300'>
-            <div className='grid grid-cols-[1fr_2fr_2.5fr_1fr_0.8fr_1fr_1fr_0.8fr] border-b border-[#64748B]/20 px-3 py-3 text-left text-sm font-semibold text-[#1E293B] lg:text-base'>
-              <div>Date</div>
-              <div>Vehicle</div>
-              <div>Description</div>
-              <div>Type</div>
-              <div>Cost</div>
-              <div>Status</div>
-              <div>Next Due</div>
+            <div className='grid grid-cols-[0.6fr_1fr_2fr_2.5fr_1fr_0.8fr_1fr_1fr_0.8fr] border-b border-[#64748B]/20 px-3 py-3 text-left text-sm font-semibold text-[#1E293B] lg:text-base'>
+              <div className='flex justify-center'>
+                <button
+                  type='button'
+                  aria-label='Select all maintenance records'
+                  onClick={toggleSelectAll}
+                  className={`grid h-5 w-5 place-items-center rounded-full border transition ${
+                    allDisplayedSelected ? 'bg-[#10B981] border-[#10B981] text-white' : 'border-[#cbd5f5]'
+                  }`}
+                >
+                  {allDisplayedSelected ? <Check size={12} strokeWidth={3} /> : null}
+                </button>
+              </div>
+              <button type='button' onClick={() => handleSort('date')} className='text-left'>
+                Date {sortKey === 'date' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
+              <button type='button' onClick={() => handleSort('vehicle')} className='text-left'>
+                Vehicle {sortKey === 'vehicle' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
+              <button type='button' onClick={() => handleSort('description')} className='text-left'>
+                Description {sortKey === 'description' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
+              <button type='button' onClick={() => handleSort('type')} className='text-left'>
+                Type {sortKey === 'type' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
+              <button type='button' onClick={() => handleSort('cost')} className='text-left'>
+                Cost {sortKey === 'cost' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
+              <button type='button' onClick={() => handleSort('status')} className='text-left'>
+                Status {sortKey === 'status' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
+              <button type='button' onClick={() => handleSort('nextDue')} className='text-left'>
+                Next Due {sortKey === 'nextDue' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
               <div>Actions</div>
             </div>
 
             {loading && records.length === 0 ? <p className='px-3 py-5 text-sm text-[#64748B]'>Loading maintenance records...</p> : null}
             {!loading && records.length === 0 ? <p className='px-3 py-5 text-sm text-[#64748B]'>No maintenance records found.</p> : null}
 
-            {records.map((record) => (
+            {paginatedRecords.map((record) => {
+              const recordKey = getRecordKey(record);
+              const isSelected = selectedRecordIds.includes(recordKey);
+              return (
               <div
-                key={record._id || record.id || `${record.vehicle}-${record.date}`}
-                className='grid grid-cols-[1fr_2fr_2.5fr_1fr_0.8fr_1fr_1fr_0.8fr] border-b border-[#64748B]/20 px-3 py-4'
+                key={recordKey}
+                className='grid grid-cols-[0.6fr_1fr_2fr_2.5fr_1fr_0.8fr_1fr_1fr_0.8fr] border-b border-[#64748B]/20 px-3 py-4'
               >
+                <div className='flex justify-center'>
+                  <button
+                    type='button'
+                    onClick={() => toggleSelectOne(recordKey)}
+                    className={`grid h-5 w-5 place-items-center rounded-full border transition ${
+                      isSelected ? 'bg-[#10B981] border-[#10B981] text-white' : 'border-[#cbd5f5]'
+                    }`}
+                  >
+                    {isSelected ? <Check size={12} strokeWidth={3} /> : null}
+                  </button>
+                </div>
                 <div className='text-sm text-[#1E293B] lg:text-base'>{record.date}</div>
                 <div className='text-sm font-semibold text-[#1E293B] lg:text-base'>{record.vehicle}</div>
                 <div className='text-sm text-[#1E293B] lg:text-base'>{record.description}</div>
@@ -511,7 +632,32 @@ export default function MaintenancePage() {
                   </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
+          </div>
+        </div>
+
+        <div className='mt-4 flex items-center justify-between gap-3 border-t border-[#64748B]/20 pt-4'>
+          <p className='text-sm font-medium text-[#475569]'>
+            Page {normalizedPage} of {totalPages} • Showing {paginatedRecords.length} of {sortedRecords.length}
+          </p>
+          <div className='flex items-center gap-2'>
+            <button
+              type='button'
+              onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+              disabled={normalizedPage <= 1}
+              className='rounded-lg border border-[#64748B]/25 bg-white px-3 py-1.5 text-sm font-semibold text-[#1E293B] disabled:cursor-not-allowed disabled:opacity-50'
+            >
+              Prev
+            </button>
+            <button
+              type='button'
+              onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
+              disabled={normalizedPage >= totalPages}
+              className='rounded-lg border border-[#64748B]/25 bg-white px-3 py-1.5 text-sm font-semibold text-[#1E293B] disabled:cursor-not-allowed disabled:opacity-50'
+            >
+              Next
+            </button>
           </div>
         </div>
       </article>

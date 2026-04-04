@@ -29,10 +29,16 @@ export default function Sidebar() {
   const { pathname } = useLocation();
 
   return (
-    <aside className='w-full border border-white/10 bg-gradient-to-b from-[#0f172a] via-[#111c2c] to-[#161b2b] px-4 py-6 shadow-[0_24px_55px_rgba(0,0,0,0.45)] sm:px-5 lg:flex lg:min-h-screen lg:w-72 lg:flex-col lg:justify-between lg:px-7 lg:py-8'>
+    <aside
+      className='w-full border border-white/10 px-4 py-6 shadow-[0_24px_55px_rgba(0,0,0,0.45)] sm:px-5 lg:flex lg:min-h-screen lg:w-72 lg:flex-col lg:justify-between lg:px-7 lg:py-8'
+      style={{ background: 'linear-gradient(180deg, var(--app-sidebar-from), var(--app-sidebar-to))' }}
+    >
       <div className='space-y-6'>
         <div className='flex items-center gap-3'>
-          <div className='grid h-11 w-11 place-items-center rounded-[18px] bg-gradient-to-br from-[#10B981] to-[#64748B] text-xs font-extrabold tracking-widest text-white'>
+          <div
+            className='grid h-11 w-11 place-items-center rounded-[18px] text-xs font-extrabold tracking-widest text-white'
+            style={{ background: 'linear-gradient(135deg, var(--app-accent), var(--app-accent-strong))' }}
+          >
             FM
           </div>
           <div>
@@ -57,9 +63,10 @@ export default function Sidebar() {
                 }`}
               >
                 <span
-                  className={`grid h-8 w-8 place-items-center rounded-2xl bg-white text-[#F59E0B] transition ${
+                  className={`grid h-8 w-8 place-items-center rounded-2xl bg-white transition ${
                     isActive ? 'shadow-[0_6px_18px_rgba(146,165,195,0.5)]' : ''
                   }`}
+                  style={{ color: 'var(--app-accent-strong)' }}
                 >
                   <Icon size={18} strokeWidth={2.2} />
                 </span>

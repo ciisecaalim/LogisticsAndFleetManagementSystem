@@ -1,10 +1,10 @@
 module.exports = {
   vehicles: [
-    { plateNumber: 'ABC-1234', model: 'Ford Transit', type: 'Van', year: 2022, status: 'Active', assignedDriver: 'John Smith', lat: 40.7589, lng: -73.9851 },
-    { plateNumber: 'XYZ-5678', model: 'Mercedes Sprinter', type: 'Van', year: 2023, status: 'Active', assignedDriver: 'Sarah Johnson', lat: 40.6782, lng: -73.9442 },
-    { plateNumber: 'DEF-9012', model: 'Volvo FH16', type: 'Truck', year: 2021, status: 'In Maintenance', assignedDriver: 'Unassigned', lat: 40.7282, lng: -74.0776 },
-    { plateNumber: 'GHI-3456', model: 'Scania R450', type: 'Truck', year: 2023, status: 'Active', assignedDriver: 'Michael Davis', lat: 40.742, lng: -73.7749 },
-    { plateNumber: 'JKL-7890', model: 'Iveco Daily', type: 'Van', year: 2022, status: 'Active', assignedDriver: 'Emily Wilson', lat: 40.8116, lng: -73.9465 }
+    { plateNumber: 'ABC-1234', model: 'Transit', brand: 'Ford', type: 'Van', year: 2022, status: 'Active', assignedDriver: 'John Smith', lat: 40.7589, lng: -73.9851 },
+    { plateNumber: 'XYZ-5678', model: 'Sprinter', brand: 'Mercedes', type: 'Van', year: 2023, status: 'Active', assignedDriver: 'Sarah Johnson', lat: 40.6782, lng: -73.9442 },
+    { plateNumber: 'DEF-9012', model: 'FH16', brand: 'Volvo', type: 'Truck', year: 2021, status: 'In Maintenance', assignedDriver: 'Unassigned', lat: 40.7282, lng: -74.0776 },
+    { plateNumber: 'GHI-3456', model: 'R450', brand: 'Scania', type: 'Truck', year: 2023, status: 'Active', assignedDriver: 'Michael Davis', lat: 40.742, lng: -73.7749 },
+    { plateNumber: 'JKL-7890', model: 'Daily', brand: 'Iveco', type: 'Van', year: 2022, status: 'Active', assignedDriver: 'Emily Wilson', lat: 40.8116, lng: -73.9465 }
   ],
   drivers: [
     { name: 'John Smith', phone: '+1-555-0101', email: 'john.smith@email.com', licenseNumber: 'DL-12345678', joinDate: '2022-01-15', status: 'Active' },

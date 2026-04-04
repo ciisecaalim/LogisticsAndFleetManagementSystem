@@ -8,22 +8,23 @@ const VEHICLES_CACHE_KEY = 'lfms_vehicles';
 const emptyForm = {
   plateNumber: '',
   model: '',
+  brand: '',
   type: 'Van',
   year: new Date().getFullYear(),
-  status: 'Active',
-  assignedDriver: 'Unassigned'
+  status: 'Active'
 };
 
 const vehicleColumns = [
   { key: 'plateNumber', label: 'Plate Number' },
   { key: 'model', label: 'Model' },
+  { key: 'brand', label: 'Brand' },
   { key: 'type', label: 'Type' },
   { key: 'year', label: 'Year', parse: (value) => Number(value) || new Date().getFullYear() },
-  { key: 'status', label: 'Status' },
-  { key: 'assignedDriver', label: 'Assigned Driver' }
+  { key: 'status', label: 'Status' }
 ];
 
 const VEHICLE_STATUS_OPTIONS = ['All', 'Active', 'In Maintenance', 'Idle'];
+const PAGE_SIZE = 10;
 
 function getCachedVehicles() {
   try {
@@ -67,6 +68,7 @@ export default function VehiclesPage() {
   const [saving, setSaving] = useState(false);
   const [sortKey, setSortKey] = useState('plateNumber');
   const [sortDirection, setSortDirection] = useState('asc');
+  const [page, setPage] = useState(1);
   const [selectedVehicleIds, setSelectedVehicleIds] = useState([]);
   const filteredVehicles = useMemo(() => {
     const list = statusFilter === 'All' ? vehicles : vehicles.filter((vehicle) => vehicle.status === statusFilter);
@@ -91,7 +93,18 @@ export default function VehiclesPage() {
     });
   }, [vehicles, statusFilter, sortKey, sortDirection]);
 
-  const filteredVehicleKeys = filteredVehicles.map((vehicle) => getVehicleKey(vehicle));
+  const totalPages = Math.max(1, Math.ceil(filteredVehicles.length / PAGE_SIZE));
+  const normalizedPage = Math.min(Math.max(page, 1), totalPages);
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+    if (page < 1) {
+      setPage(1);
+    }
+  }, [page, totalPages]);
+  const paginatedVehicles = filteredVehicles.slice((normalizedPage - 1) * PAGE_SIZE, normalizedPage * PAGE_SIZE);
+  const filteredVehicleKeys = paginatedVehicles.map((vehicle) => getVehicleKey(vehicle));
   const allDisplayedSelected =
     filteredVehicleKeys.length > 0 && filteredVehicleKeys.every((id) => selectedVehicleIds.includes(id));
   const toggleSelectAll = () => {
@@ -176,10 +189,10 @@ export default function VehiclesPage() {
     setFormData({
       plateNumber: vehicle.plateNumber || '',
       model: vehicle.model || '',
+      brand: vehicle.brand || vehicle.make || vehicle.model || '',
       type: vehicle.type || 'Van',
       year: vehicle.year || new Date().getFullYear(),
-      status: vehicle.status || 'Active',
-      assignedDriver: vehicle.assignedDriver || 'Unassigned'
+      status: vehicle.status || 'Active'
     });
     setError('');
   }
@@ -198,7 +211,12 @@ export default function VehiclesPage() {
   async function handleSaveForm(event) {
     event.preventDefault();
 
-    if (!formData.plateNumber.trim() || !formData.model.trim() || !formData.type.trim() || !formData.assignedDriver.trim()) {
+    if (
+      !formData.plateNumber.trim() ||
+      !formData.model.trim() ||
+      !formData.brand.trim() ||
+      !formData.type.trim()
+    ) {
       setError('Please fill all required fields.');
       return;
     }
@@ -216,8 +234,8 @@ export default function VehiclesPage() {
           ...formData,
           plateNumber: formData.plateNumber.trim(),
           model: formData.model.trim(),
+          brand: formData.brand.trim(),
           type: formData.type.trim(),
-          assignedDriver: formData.assignedDriver.trim(),
           lat: 0,
           lng: 0
         });
@@ -232,8 +250,8 @@ export default function VehiclesPage() {
           ...formData,
           plateNumber: formData.plateNumber.trim(),
           model: formData.model.trim(),
-          type: formData.type.trim(),
-          assignedDriver: formData.assignedDriver.trim()
+          brand: formData.brand.trim(),
+          type: formData.type.trim()
         });
 
         const next = vehicles.map((item) => ((item._id || item.id) === editingId ? updated : item));
@@ -336,8 +354,8 @@ export default function VehiclesPage() {
                         ...row,
                         plateNumber: (row.plateNumber || '').trim(),
                         model: (row.model || '').trim(),
+                        brand: (row.brand || '').trim(),
                         type: row.type || 'Van',
-                        assignedDriver: row.assignedDriver || 'Unassigned',
                         lat: 0,
                         lng: 0
                       })
@@ -405,6 +423,18 @@ export default function VehiclesPage() {
             </label>
 
             <label className='grid gap-1 text-sm text-[#1E293B]'>
+              Brand
+              <input
+                name='brand'
+                value={formData.brand}
+                onChange={onFormChange}
+                className='rounded-lg border border-[#64748B]/25 px-3 py-2'
+                placeholder='e.g. Toyota, Isuzu'
+                required
+              />
+            </label>
+
+            <label className='grid gap-1 text-sm text-[#1E293B]'>
               Type
               <input
                 name='type'
@@ -437,17 +467,6 @@ export default function VehiclesPage() {
               </select>
             </label>
 
-            <label className='grid gap-1 text-sm text-[#1E293B]'>
-              Assigned Driver
-              <input
-                name='assignedDriver'
-                value={formData.assignedDriver}
-                onChange={onFormChange}
-                className='rounded-lg border border-[#64748B]/25 px-3 py-2'
-                required
-              />
-            </label>
-
             <div className='md:col-span-2 flex items-center gap-3'>
               <button
                 type='submit'
@@ -478,7 +497,7 @@ export default function VehiclesPage() {
 
         <div className='mt-6 overflow-x-auto'>
           <div className='min-w-[calc(100%+1px)]'>
-            <div className='grid grid-cols-[0.6fr_1.2fr_1.6fr_0.8fr_0.8fr_1.2fr_1.4fr_0.8fr] border-b border-[#64748B]/20 px-3 py-3 text-left text-xs font-semibold text-[#1E293B] sm:text-sm'>
+            <div className='grid grid-cols-[0.6fr_1.2fr_1.2fr_1.4fr_0.9fr_0.9fr_0.8fr] border-b border-[#64748B]/20 px-3 py-3 text-left text-xs font-semibold text-[#1E293B] sm:text-sm'>
               <div className='flex justify-center'>
                 <button
                   type='button'
@@ -492,7 +511,7 @@ export default function VehiclesPage() {
                 </button>
               </div>
               {vehicleColumns.map((column) => (
-              <button
+                <button
                 key={column.key}
                 type='button'
                   onClick={() => handleSort(column.key)}
@@ -513,13 +532,28 @@ export default function VehiclesPage() {
               <p className='px-3 py-5 text-sm text-[#64748B]'>No vehicles match the current filter.</p>
             )}
 
-            {filteredVehicles.map((vehicle) => (
-              <div
-                key={vehicle._id || vehicle.id || vehicle.plateNumber}
-                className='grid grid-cols-[1.2fr_1.6fr_0.8fr_0.8fr_1.2fr_1.4fr_0.8fr] border-b border-[#64748B]/20 px-3 py-4'
-              >
+            {paginatedVehicles.map((vehicle) => {
+              const vehicleKey = getVehicleKey(vehicle);
+              const isSelected = selectedVehicleIds.includes(vehicleKey);
+              return (
+                <div
+                  key={vehicleKey}
+                  className='grid grid-cols-[0.6fr_1.2fr_1.2fr_1.4fr_0.9fr_0.9fr_0.8fr] border-b border-[#64748B]/20 px-3 py-4'
+                >
+                <div className='flex justify-center'>
+                  <button
+                    type='button'
+                    onClick={() => toggleSelectOne(vehicleKey)}
+                    className={`grid h-5 w-5 place-items-center rounded-full border transition ${
+                      isSelected ? 'bg-[#10B981] border-[#10B981] text-white' : 'border-[#cbd5f5]'
+                    }`}
+                  >
+                    {isSelected ? <Check size={12} strokeWidth={3} /> : null}
+                  </button>
+                </div>
                 <div className='text-sm font-medium text-[#1E293B] lg:text-base'>{vehicle.plateNumber}</div>
                 <div className='text-sm text-[#1E293B] lg:text-base'>{vehicle.model}</div>
+                <div className='text-sm text-[#1E293B] lg:text-base'>{vehicle.brand || vehicle.make || vehicle.model || '—'}</div>
                 <div className='text-sm text-[#1E293B] lg:text-base'>{vehicle.type}</div>
                 <div className='text-sm text-[#1E293B] lg:text-base'>{vehicle.year}</div>
                 <div>
@@ -527,7 +561,6 @@ export default function VehiclesPage() {
                     {vehicle.status}
                   </span>
                 </div>
-                <div className='text-sm text-[#1E293B] lg:text-base'>{vehicle.assignedDriver}</div>
                 <div className='flex items-center gap-3'>
                   <button
                     type='button'
@@ -547,7 +580,32 @@ export default function VehiclesPage() {
                   </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
+          </div>
+        </div>
+
+        <div className='mt-4 flex items-center justify-between gap-3 border-t border-[#64748B]/20 pt-4'>
+          <p className='text-sm font-medium text-[#475569]'>
+            Page {normalizedPage} of {totalPages} • Showing {paginatedVehicles.length} of {filteredVehicles.length}
+          </p>
+          <div className='flex items-center gap-2'>
+            <button
+              type='button'
+              onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+              disabled={normalizedPage <= 1}
+              className='rounded-lg border border-[#64748B]/25 bg-white px-3 py-1.5 text-sm font-semibold text-[#1E293B] disabled:cursor-not-allowed disabled:opacity-50'
+            >
+              Prev
+            </button>
+            <button
+              type='button'
+              onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
+              disabled={normalizedPage >= totalPages}
+              className='rounded-lg border border-[#64748B]/25 bg-white px-3 py-1.5 text-sm font-semibold text-[#1E293B] disabled:cursor-not-allowed disabled:opacity-50'
+            >
+              Next
+            </button>
           </div>
         </div>
       </article>

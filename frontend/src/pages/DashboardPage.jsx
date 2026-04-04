@@ -236,7 +236,7 @@ export default function DashboardPage() {
                 </span>
                 <div>
                   <p className='m-0 font-semibold text-[#64748B]'>{card.title}</p>
-                  <p className='mt-1 text-2xl leading-none font-extrabold text-[#1E293B] sm:text-3xl'>{card.value}</p>
+                  <p className='mt-1 leading-none font-extrabold text-[#1E293B]' style={{ fontSize: '2em' }}>{card.value}</p>
                   <p className='mt-1 text-sm text-[#64748B]'>{card.description}</p>
                 </div>
               </div>

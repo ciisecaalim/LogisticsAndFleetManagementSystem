@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Download, Fuel, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { Check, Download, Fuel, Pencil, Plus, Trash2, X } from 'lucide-react';
 import api from '../services/api';
 import { downloadCsv, parseCsv } from '../utils/csv';
 
@@ -16,6 +16,7 @@ const EMPTY_FUEL_FORM = {
 };
 const CHART_HEIGHT = 220;
 const CHART_MIN_WIDTH = 640;
+const PAGE_SIZE = 10;
 const fuelColumns = [
   { key: 'date', label: 'Date' },
   { key: 'vehicle', label: 'Vehicle' },
@@ -63,6 +64,10 @@ function buildLinePath(points) {
   }, '');
 }
 
+function getFuelRecordKey(record) {
+  return record._id || record.id || `${record.vehicle}-${record.date}`;
+}
+
 export default function FuelPage() {
   const [fuelRecords, setFuelRecords] = useState(getCachedFuelRecords);
   const [loading, setLoading] = useState(fuelRecords.length === 0);
@@ -76,6 +81,10 @@ export default function FuelPage() {
   const [availableVehicles, setAvailableVehicles] = useState(() => readCache(FUEL_VEHICLES_CACHE));
   const [chartWidth, setChartWidth] = useState(CHART_MIN_WIDTH);
   const chartWrapperRef = useRef(null);
+  const [sortKey, setSortKey] = useState('date');
+  const [sortDirection, setSortDirection] = useState('desc');
+  const [page, setPage] = useState(1);
+  const [selectedRecordIds, setSelectedRecordIds] = useState([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -213,6 +222,79 @@ export default function FuelPage() {
 
     return fuelRecords.filter((record) => record.station === exportStation);
   }, [exportStation, fuelRecords]);
+  const sortedFuelRecords = useMemo(() => {
+    const direction = sortDirection === 'asc' ? 1 : -1;
+    return [...filteredFuelRecords].sort((a, b) => {
+      const getValue = (item) => {
+        const value = item[sortKey];
+        if (value === undefined || value === null) {
+          return '';
+        }
+
+        if (sortKey === 'liters' || sortKey === 'cost' || sortKey === 'pricePerLiter' || sortKey === 'odometer') {
+          return Number(value) || 0;
+        }
+
+        return typeof value === 'string' ? value.toLowerCase() : value;
+      };
+
+      const aval = getValue(a);
+      const bval = getValue(b);
+      if (aval === bval) {
+        return 0;
+      }
+      return direction * (aval > bval ? 1 : -1);
+    });
+  }, [filteredFuelRecords, sortDirection, sortKey]);
+  const totalPages = Math.max(1, Math.ceil(sortedFuelRecords.length / PAGE_SIZE));
+  const normalizedPage = Math.min(Math.max(page, 1), totalPages);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+    if (page < 1) {
+      setPage(1);
+    }
+  }, [page, totalPages]);
+
+  const paginatedFuelRecords = sortedFuelRecords.slice((normalizedPage - 1) * PAGE_SIZE, normalizedPage * PAGE_SIZE);
+  const visibleRecordKeys = paginatedFuelRecords.map((record) => getFuelRecordKey(record));
+  const allDisplayedSelected =
+    visibleRecordKeys.length > 0 && visibleRecordKeys.every((id) => selectedRecordIds.includes(id));
+
+  const toggleSelectAll = () => {
+    if (allDisplayedSelected) {
+      setSelectedRecordIds((prev) => prev.filter((id) => !visibleRecordKeys.includes(id)));
+      return;
+    }
+
+    setSelectedRecordIds((prev) => {
+      const next = [...prev];
+      visibleRecordKeys.forEach((id) => {
+        if (!next.includes(id)) {
+          next.push(id);
+        }
+      });
+      return next;
+    });
+  };
+
+  const toggleSelectOne = (recordId) => {
+    setSelectedRecordIds((prev) =>
+      prev.includes(recordId) ? prev.filter((id) => id !== recordId) : [...prev, recordId]
+    );
+  };
+
+  const handleSort = (key) => {
+    if (sortKey === key) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+
+    setSortKey(key);
+    setSortDirection('asc');
+  };
   const vehicleOptions = useMemo(() => {
     return availableVehicles
       .filter((vehicle) => vehicle && (vehicle.plateNumber || vehicle.model))
@@ -506,7 +588,7 @@ export default function FuelPage() {
             </span>
             <div>
               <p className='m-0 text-lg font-semibold text-[#64748B]'>Total Cost</p>
-              <p className='mt-1 text-3xl leading-none font-bold text-[#1E293B]'>${totalCost.toFixed(2)}</p>
+              <p className='mt-1 leading-none font-bold text-[#1E293B]' style={{ fontSize: '2em' }}>${totalCost.toFixed(2)}</p>
             </div>
           </div>
         </article>
@@ -518,7 +600,7 @@ export default function FuelPage() {
             </span>
             <div>
               <p className='m-0 text-lg font-semibold text-[#64748B]'>Total Liters</p>
-              <p className='mt-1 text-3xl leading-none font-bold text-[#1E293B]'>{totalLiters.toFixed(2)}</p>
+              <p className='mt-1 leading-none font-bold text-[#1E293B]' style={{ fontSize: '2em' }}>{totalLiters.toFixed(2)}</p>
             </div>
           </div>
         </article>
@@ -530,7 +612,7 @@ export default function FuelPage() {
             </span>
             <div>
               <p className='m-0 text-lg font-semibold text-[#64748B]'>Avg. Price/L</p>
-              <p className='mt-1 text-3xl leading-none font-bold text-[#1E293B]'>${averagePrice.toFixed(2)}</p>
+              <p className='mt-1 leading-none font-bold text-[#1E293B]' style={{ fontSize: '2em' }}>${averagePrice.toFixed(2)}</p>
             </div>
           </div>
         </article>
@@ -686,25 +768,69 @@ export default function FuelPage() {
 
         <div className='mt-6 overflow-x-auto'>
           <div className='min-w-300'>
-            <div className='grid grid-cols-[1fr_2fr_0.8fr_0.8fr_0.7fr_1.5fr_1fr_0.8fr] border-b border-[#64748B]/20 px-3 py-3 text-left text-sm font-semibold text-[#1E293B] lg:text-base'>
-              <div>Date</div>
-              <div>Vehicle</div>
-              <div>Liters</div>
-              <div>Cost</div>
-              <div>Price/L</div>
-              <div>Station</div>
-              <div>Odometer</div>
+            <div className='grid grid-cols-[0.6fr_1fr_2fr_0.8fr_0.8fr_0.7fr_1.5fr_1fr_0.8fr] border-b border-[#64748B]/20 px-3 py-3 text-left text-sm font-semibold text-[#1E293B] lg:text-base'>
+              <div className='flex justify-center'>
+                <button
+                  type='button'
+                  aria-label='Select all fuel records'
+                  onClick={toggleSelectAll}
+                  className={`grid h-5 w-5 place-items-center rounded-full border transition ${
+                    allDisplayedSelected ? 'bg-[#10B981] border-[#10B981] text-white' : 'border-[#cbd5f5]'
+                  }`}
+                >
+                  {allDisplayedSelected ? <Check size={12} strokeWidth={3} /> : null}
+                </button>
+              </div>
+              <button type='button' onClick={() => handleSort('date')} className='text-left'>
+                Date {sortKey === 'date' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
+              <button type='button' onClick={() => handleSort('vehicle')} className='text-left'>
+                Vehicle {sortKey === 'vehicle' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
+              <button type='button' onClick={() => handleSort('liters')} className='text-left'>
+                Liters {sortKey === 'liters' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
+              <button type='button' onClick={() => handleSort('cost')} className='text-left'>
+                Cost {sortKey === 'cost' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
+              <button type='button' onClick={() => handleSort('pricePerLiter')} className='text-left'>
+                Price/L {sortKey === 'pricePerLiter' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
+              <button type='button' onClick={() => handleSort('station')} className='text-left'>
+                Station {sortKey === 'station' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
+              <button type='button' onClick={() => handleSort('odometer')} className='text-left'>
+                Odometer {sortKey === 'odometer' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
               <div>Actions</div>
             </div>
 
             {loading && fuelRecords.length === 0 ? <p className='px-3 py-5 text-sm text-[#64748B]'>Loading fuel records...</p> : null}
             {!loading && fuelRecords.length === 0 ? <p className='px-3 py-5 text-sm text-[#64748B]'>No fuel records found.</p> : null}
 
-            {fuelRecords.map((record) => (
+            {!loading && fuelRecords.length > 0 && filteredFuelRecords.length === 0 ? (
+              <p className='px-3 py-5 text-sm text-[#64748B]'>No fuel records match the current filter.</p>
+            ) : null}
+
+            {paginatedFuelRecords.map((record) => {
+              const recordKey = getFuelRecordKey(record);
+              const isSelected = selectedRecordIds.includes(recordKey);
+              return (
               <div
-                key={record._id || record.id || `${record.vehicle}-${record.date}`}
-                className='grid grid-cols-[1fr_2fr_0.8fr_0.8fr_0.7fr_1.5fr_1fr_0.8fr] border-b border-[#64748B]/20 px-3 py-4'
+                key={recordKey}
+                className='grid grid-cols-[0.6fr_1fr_2fr_0.8fr_0.8fr_0.7fr_1.5fr_1fr_0.8fr] border-b border-[#64748B]/20 px-3 py-4'
               >
+                <div className='flex justify-center'>
+                  <button
+                    type='button'
+                    onClick={() => toggleSelectOne(recordKey)}
+                    className={`grid h-5 w-5 place-items-center rounded-full border transition ${
+                      isSelected ? 'bg-[#10B981] border-[#10B981] text-white' : 'border-[#cbd5f5]'
+                    }`}
+                  >
+                    {isSelected ? <Check size={12} strokeWidth={3} /> : null}
+                  </button>
+                </div>
                 <div className='text-sm text-[#1E293B] lg:text-base'>{record.date}</div>
                 <div className='text-sm font-semibold text-[#1E293B] lg:text-base'>{record.vehicle}</div>
                 <div className='text-sm text-[#1E293B] lg:text-base'>{Number(record.liters || 0).toFixed(2)} L</div>
@@ -731,7 +857,32 @@ export default function FuelPage() {
                   </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
+          </div>
+        </div>
+
+        <div className='mt-4 flex items-center justify-between gap-3 border-t border-[#64748B]/20 pt-4'>
+          <p className='text-sm font-medium text-[#475569]'>
+            Page {normalizedPage} of {totalPages} • Showing {paginatedFuelRecords.length} of {sortedFuelRecords.length}
+          </p>
+          <div className='flex items-center gap-2'>
+            <button
+              type='button'
+              onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+              disabled={normalizedPage <= 1}
+              className='rounded-lg border border-[#64748B]/25 bg-white px-3 py-1.5 text-sm font-semibold text-[#1E293B] disabled:cursor-not-allowed disabled:opacity-50'
+            >
+              Prev
+            </button>
+            <button
+              type='button'
+              onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
+              disabled={normalizedPage >= totalPages}
+              className='rounded-lg border border-[#64748B]/25 bg-white px-3 py-1.5 text-sm font-semibold text-[#1E293B] disabled:cursor-not-allowed disabled:opacity-50'
+            >
+              Next
+            </button>
           </div>
         </div>
       </article>

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Download, Mail, Pencil, Phone, Plus, Trash2, X } from 'lucide-react';
+import { Check, Download, Mail, Pencil, Phone, Plus, Trash2, X } from 'lucide-react';
 import api from '../services/api';
 import { downloadCsv, parseCsv } from '../utils/csv';
 
 const DRIVERS_CACHE_KEY = 'lfms_drivers';
-const DRIVER_STATUS_OPTIONS = ['All', 'Active', 'On Leave', 'Inactive'];
+const DRIVER_STATUS_OPTIONS = ['All', 'Available', 'Assigned', 'Off'];
+const PAGE_SIZE = 10;
 const driverColumns = [
   { key: 'name', label: 'Name' },
   { key: 'phone', label: 'Phone' },
@@ -28,11 +29,11 @@ function saveDriversToCache(list) {
 }
 
 function getStatusClass(status) {
-  if (status === 'Active') {
+  if (status === 'Available') {
     return 'bg-[#10B981]/20 text-[#047857]';
   }
 
-  if (status === 'On Leave') {
+  if (status === 'Assigned') {
     return 'bg-[#F59E0B]/20 text-[#92400E]';
   }
 
@@ -46,8 +47,12 @@ function createDriverFormDefaults() {
     email: '',
     licenseNumber: '',
     joinDate: new Date().toISOString().slice(0, 10),
-    status: 'Active'
+    status: 'Available'
   };
+}
+
+function getDriverKey(driver) {
+  return driver._id || driver.id || driver.licenseNumber;
 }
 
 export default function DriversPage() {
@@ -60,6 +65,10 @@ export default function DriversPage() {
   const [formData, setFormData] = useState(createDriverFormDefaults);
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef(null);
+  const [sortKey, setSortKey] = useState('name');
+  const [sortDirection, setSortDirection] = useState('asc');
+  const [page, setPage] = useState(1);
+  const [selectedDriverIds, setSelectedDriverIds] = useState([]);
 
   function openAddForm() {
     setFormMode('add');
@@ -84,7 +93,7 @@ export default function DriversPage() {
       email: driver.email || '',
       licenseNumber: driver.licenseNumber || '',
       joinDate: driver.joinDate ? String(driver.joinDate).slice(0, 10) : new Date().toISOString().slice(0, 10),
-      status: driver.status || 'Active'
+      status: driver.status || 'Available'
     });
     setError('');
   }
@@ -214,6 +223,78 @@ export default function DriversPage() {
     return drivers.filter((driver) => driver.status === exportStatus);
   }, [exportStatus, drivers]);
 
+  const sortedDrivers = useMemo(() => {
+    const direction = sortDirection === 'asc' ? 1 : -1;
+    return [...filteredDrivers].sort((a, b) => {
+      const getValue = (item) => {
+        const value = item[sortKey];
+        if (value === undefined || value === null) {
+          return '';
+        }
+        return typeof value === 'string' ? value.toLowerCase() : value;
+      };
+
+      const aval = getValue(a);
+      const bval = getValue(b);
+
+      if (aval === bval) {
+        return 0;
+      }
+
+      return direction * (aval > bval ? 1 : -1);
+    });
+  }, [filteredDrivers, sortDirection, sortKey]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedDrivers.length / PAGE_SIZE));
+  const normalizedPage = Math.min(Math.max(page, 1), totalPages);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+    if (page < 1) {
+      setPage(1);
+    }
+  }, [page, totalPages]);
+
+  const paginatedDrivers = sortedDrivers.slice((normalizedPage - 1) * PAGE_SIZE, normalizedPage * PAGE_SIZE);
+  const visibleDriverKeys = paginatedDrivers.map((driver) => getDriverKey(driver));
+  const allDisplayedSelected =
+    visibleDriverKeys.length > 0 && visibleDriverKeys.every((id) => selectedDriverIds.includes(id));
+
+  const toggleSelectAll = () => {
+    if (allDisplayedSelected) {
+      setSelectedDriverIds((prev) => prev.filter((id) => !visibleDriverKeys.includes(id)));
+      return;
+    }
+
+    setSelectedDriverIds((prev) => {
+      const next = [...prev];
+      visibleDriverKeys.forEach((id) => {
+        if (!next.includes(id)) {
+          next.push(id);
+        }
+      });
+      return next;
+    });
+  };
+
+  const toggleSelectOne = (driverId) => {
+    setSelectedDriverIds((prev) =>
+      prev.includes(driverId) ? prev.filter((id) => id !== driverId) : [...prev, driverId]
+    );
+  };
+
+  const handleSort = (key) => {
+    if (sortKey === key) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+
+    setSortKey(key);
+    setSortDirection('asc');
+  };
+
   return (
     <section className='space-y-6'>
       <header className='flex flex-wrap items-start justify-between gap-4'>
@@ -295,7 +376,7 @@ export default function DriversPage() {
                       email: (row.email || '').trim(),
                       licenseNumber: (row.licenseNumber || '').trim(),
                       joinDate: ((row.joinDate && String(row.joinDate)) || new Date().toISOString()).slice(0, 10),
-                      status: row.status || 'Active'
+                      status: row.status || 'Available'
                     })
                 )
               );
@@ -386,9 +467,9 @@ export default function DriversPage() {
             <label className='grid gap-1 text-sm text-[#1E293B]'>
               Status
               <select name='status' value={formData.status} onChange={onFormChange} className='rounded-lg border border-[#64748B]/25 px-3 py-2'>
-                <option value='Active'>Active</option>
-                <option value='On Leave'>On Leave</option>
-                <option value='Inactive'>Inactive</option>
+                <option value='Available'>Available</option>
+                <option value='Assigned'>Assigned</option>
+                <option value='Off'>Off</option>
               </select>
             </label>
 
@@ -422,23 +503,64 @@ export default function DriversPage() {
 
         <div className='mt-6 overflow-x-auto'>
           <div className='min-w-245'>
-            <div className='grid grid-cols-[1.2fr_2fr_1.2fr_1fr_1fr_1fr] border-b border-[#64748B]/20 px-3 py-3 text-left text-sm font-semibold text-[#1E293B] lg:text-base'>
-              <div>Name</div>
-              <div>Contact</div>
-              <div>License Number</div>
-              <div>Join Date</div>
-              <div>Status</div>
+            <div className='grid grid-cols-[0.6fr_1.2fr_2fr_1.2fr_1fr_1fr_1fr] border-b border-[#64748B]/20 px-3 py-3 text-left text-sm font-semibold text-[#1E293B] lg:text-base'>
+              <div className='flex justify-center'>
+                <button
+                  type='button'
+                  aria-label='Select all drivers'
+                  onClick={toggleSelectAll}
+                  className={`grid h-5 w-5 place-items-center rounded-full border transition ${
+                    allDisplayedSelected ? 'bg-[#10B981] border-[#10B981] text-white' : 'border-[#cbd5f5]'
+                  }`}
+                >
+                  {allDisplayedSelected ? <Check size={12} strokeWidth={3} /> : null}
+                </button>
+              </div>
+              <button type='button' onClick={() => handleSort('name')} className='text-left'>
+                Name {sortKey === 'name' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
+              <button type='button' onClick={() => handleSort('phone')} className='text-left'>
+                Contact {sortKey === 'phone' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
+              <button type='button' onClick={() => handleSort('licenseNumber')} className='text-left'>
+                License Number {sortKey === 'licenseNumber' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
+              <button type='button' onClick={() => handleSort('joinDate')} className='text-left'>
+                Join Date {sortKey === 'joinDate' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
+              <button type='button' onClick={() => handleSort('status')} className='text-left'>
+                Status {sortKey === 'status' ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+              </button>
               <div>Actions</div>
             </div>
 
             {loading && drivers.length === 0 ? <p className='px-3 py-5 text-sm text-[#64748B]'>Loading drivers...</p> : null}
             {!loading && drivers.length === 0 ? <p className='px-3 py-5 text-sm text-[#64748B]'>No drivers found.</p> : null}
 
-            {drivers.map((driver) => (
+            {!loading && drivers.length > 0 && filteredDrivers.length === 0 ? (
+              <p className='px-3 py-5 text-sm text-[#64748B]'>No drivers match the current filter.</p>
+            ) : null}
+
+            {paginatedDrivers.map((driver) => {
+              const driverKey = getDriverKey(driver);
+              const isSelected = selectedDriverIds.includes(driverKey);
+
+              return (
               <div
-                key={driver._id || driver.id || driver.licenseNumber}
-                className='grid grid-cols-[1.2fr_2fr_1.2fr_1fr_1fr_1fr] border-b border-[#64748B]/20 px-3 py-4'
+                key={driverKey}
+                className='grid grid-cols-[0.6fr_1.2fr_2fr_1.2fr_1fr_1fr_1fr] border-b border-[#64748B]/20 px-3 py-4'
               >
+                <div className='flex justify-center'>
+                  <button
+                    type='button'
+                    onClick={() => toggleSelectOne(driverKey)}
+                    className={`grid h-5 w-5 place-items-center rounded-full border transition ${
+                      isSelected ? 'bg-[#10B981] border-[#10B981] text-white' : 'border-[#cbd5f5]'
+                    }`}
+                  >
+                    {isSelected ? <Check size={12} strokeWidth={3} /> : null}
+                  </button>
+                </div>
                 <div className='text-sm font-semibold text-[#1E293B] lg:text-base'>{driver.name}</div>
                 <div className='space-y-1 text-[#1E293B]'>
                   <div className='flex items-center gap-2 text-sm lg:text-base'>
@@ -476,7 +598,32 @@ export default function DriversPage() {
                   </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
+          </div>
+        </div>
+
+        <div className='mt-4 flex items-center justify-between gap-3 border-t border-[#64748B]/20 pt-4'>
+          <p className='text-sm font-medium text-[#475569]'>
+            Page {normalizedPage} of {totalPages} • Showing {paginatedDrivers.length} of {sortedDrivers.length}
+          </p>
+          <div className='flex items-center gap-2'>
+            <button
+              type='button'
+              onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+              disabled={normalizedPage <= 1}
+              className='rounded-lg border border-[#64748B]/25 bg-white px-3 py-1.5 text-sm font-semibold text-[#1E293B] disabled:cursor-not-allowed disabled:opacity-50'
+            >
+              Prev
+            </button>
+            <button
+              type='button'
+              onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
+              disabled={normalizedPage >= totalPages}
+              className='rounded-lg border border-[#64748B]/25 bg-white px-3 py-1.5 text-sm font-semibold text-[#1E293B] disabled:cursor-not-allowed disabled:opacity-50'
+            >
+              Next
+            </button>
           </div>
         </div>
       </article>

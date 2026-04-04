@@ -12,7 +12,10 @@ export default function TopBar() {
   } = resources;
 
   return (
-    <div className='mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#64748B]/15 bg-white px-4 py-2.5 shadow-sm'>
+    <div
+      className='mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-2.5 shadow-sm'
+      style={{ borderColor: 'color-mix(in srgb, var(--app-text-muted) 20%, white)', backgroundColor: 'var(--app-topbar-bg)' }}
+    >
       <label className='flex w-full max-w-sm items-center gap-2 rounded-xl border border-[#64748B]/20 bg-slate-50 px-3 py-2 text-xs text-[#64748B]'>
         <Search size={13} />
         <input
@@ -26,16 +29,18 @@ export default function TopBar() {
         <button
           type='button'
           className='inline-flex items-center gap-1 rounded-xl border border-[#64748B]/20 bg-white px-2.5 py-1.5 text-[11px] font-medium text-[#1E293B]'
+          style={{ color: 'var(--app-text-main)' }}
         >
-          <Globe size={12} className='text-[#64748B]' />
+          <Globe size={12} style={{ color: 'var(--app-accent-strong)' }} />
           {languageLabel}
-          <ChevronDown size={11} className='text-[#64748B]' />
+          <ChevronDown size={11} style={{ color: 'var(--app-text-muted)' }} />
         </button>
 
         <button
           type='button'
           className='grid h-8 w-8 place-items-center rounded-full bg-[#64748B]/10 text-[#1E293B]'
           aria-label='Notifications'
+          style={{ color: 'var(--app-text-main)' }}
         >
           <Bell size={14} />
         </button>

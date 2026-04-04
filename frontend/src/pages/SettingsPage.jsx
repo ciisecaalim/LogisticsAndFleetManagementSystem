@@ -1,18 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Bell,
-  Database,
   Globe,
-  Lock,
   Map,
   Palette,
   Shield,
   Truck,
   UserRound,
-  Users,
-  X
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import { getCountryDefaults, useAppSettings } from '../contexts/AppSettingsContext';
 
 const sections = [
   { id: 'general', label: 'General', description: 'Company details & contact info', icon: Globe },
@@ -21,9 +18,7 @@ const sections = [
   { id: 'gps', label: 'GPS & Tracking', description: 'Location & routing controls', icon: Map },
   { id: 'notifications', label: 'Notifications', description: 'Alert rules & channels', icon: Bell },
   { id: 'security', label: 'Security', description: 'Access & session policies', icon: Shield },
-  { id: 'users', label: 'Users', description: 'Team management', icon: Users },
-  { id: 'ui', label: 'UI Preferences', description: 'Theme & layout', icon: Palette },
-  { id: 'backup', label: 'Backup & System', description: 'Data export & logs', icon: Database }
+  { id: 'ui', label: 'UI Preferences', description: 'Theme & layout', icon: Palette }
 ];
 
 const actionButtonBase = 'rounded-2xl px-5 py-2 text-sm font-semibold transition focus:outline-none';
@@ -31,8 +26,6 @@ const primaryAction =
   `${actionButtonBase} bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-[0_12px_30px_rgba(16,185,129,0.4)] hover:from-emerald-400`;
 const secondaryAction =
   `${actionButtonBase} border border-slate-200 bg-white text-slate-700 shadow-sm hover:border-slate-300`;
-const mutedAction =
-  `${actionButtonBase} border border-slate-300 bg-slate-50 text-slate-600 hover:border-slate-400`;
 const accentAction =
   `${actionButtonBase} border border-emerald-200 bg-white text-emerald-600 shadow-sm hover:bg-emerald-50`;
 
@@ -43,6 +36,7 @@ const defaultSettings = {
     email: 'operations@somalilogistics.com',
     phone: '+252 61 234 5678',
     address: '123 Mogadishu Port Rd, Mogadishu, Somalia',
+    country: 'Somalia',
     timezone: 'EAT (UTC+3)',
     language: 'English'
   },
@@ -78,15 +72,9 @@ const defaultSettings = {
   },
   ui: {
     themeMode: 'light',
+    accentTone: 'emerald',
     layout: 'default',
     language: 'English'
-  },
-  backup: {
-    backupMode: 'auto',
-    exportFormat: 'CSV',
-    apiKeyAlias: 'lkj39-ds0j',
-    systemLogs:
-      'Auto backup completed 2 hours ago. Next scheduled sync at 02:00 UTC. API key rotated 12 days ago.'
   }
 };
 
@@ -94,30 +82,6 @@ const defaultVehicles = [
   { id: 'TRK-12', name: 'TRK-12', alertsEnabled: true },
   { id: 'VAN-24', name: 'VAN-24', alertsEnabled: false },
   { id: 'BUS-03', name: 'BUS-03', alertsEnabled: true }
-];
-
-const initialUsers = [
-  {
-    id: 1,
-    name: 'Amina Ahmed',
-    role: 'Manager',
-    status: 'Active',
-    permissions: { read: true, write: true, manage: true }
-  },
-  {
-    id: 2,
-    name: 'Hassan Yusuf',
-    role: 'Driver',
-    status: 'Active',
-    permissions: { read: true, write: false, manage: false }
-  },
-  {
-    id: 3,
-    name: 'Leyla Mohamed',
-    role: 'Admin',
-    status: 'Suspended',
-    permissions: { read: true, write: true, manage: true }
-  }
 ];
 
 const notificationHistory = [
@@ -144,12 +108,6 @@ const notificationHistory = [
   }
 ];
 
-const systemLogs = [
-  { id: 1, title: 'Database backup', detail: 'Completed successfully', time: 'Today · 06:32' },
-  { id: 2, title: 'API key rotation', detail: 'Key lkj39-ds0j rotated', time: 'Yesterday · 21:10' },
-  { id: 3, title: 'Security review', detail: '2FA enforced for all admin accounts', time: 'Yesterday · 14:55' }
-];
-
 const ToggleSwitch = ({ checked, onToggle }) => (
   <button
     type='button'
@@ -172,10 +130,10 @@ export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState('general');
   const [settings, setSettings] = useState(defaultSettings);
   const [vehicles, setVehicles] = useState(defaultVehicles);
-  const [users, setUsers] = useState(initialUsers);
   const [toast, setToast] = useState(null);
   const toastTimerRef = useRef(null);
   const { language, setLanguage } = useLanguage();
+  const { appSettings, setCountry, setThemeMode, setAccentTone } = useAppSettings();
   const [alertHistoryOpen, setAlertHistoryOpen] = useState(false);
 
   useEffect(() => {
@@ -197,6 +155,36 @@ export default function SettingsPage() {
   };
 
   const handleFieldChange = (sectionId, field, value) => {
+    if (sectionId === 'general' && field === 'country') {
+      const countryDefaults = getCountryDefaults(value);
+      const nextLanguage = countryDefaults.language;
+      setCountry(value);
+      setLanguage(nextLanguage);
+      setSettings((prev) => ({
+        ...prev,
+        general: {
+          ...prev.general,
+          country: value,
+          timezone: countryDefaults.timezone,
+          language: nextLanguage
+        },
+        ui: {
+          ...prev.ui,
+          language: nextLanguage
+        }
+      }));
+      showToast(`${value} profile applied across system.`);
+      return;
+    }
+
+    if (sectionId === 'ui' && field === 'themeMode') {
+      setThemeMode(value);
+    }
+
+    if (sectionId === 'ui' && field === 'accentTone') {
+      setAccentTone(value);
+    }
+
     setSettings((prev) => ({
       ...prev,
       [sectionId]: { ...prev[sectionId], [field]: value }
@@ -217,55 +205,6 @@ export default function SettingsPage() {
         vehicle.id === vehicleId ? { ...vehicle, alertsEnabled: !vehicle.alertsEnabled } : vehicle
       )
     );
-  };
-
-  const handleUserRoleChange = (userId, role) => {
-    setUsers((prev) => prev.map((user) => (user.id === userId ? { ...user, role } : user)));
-  };
-
-  const toggleUserStatus = (userId) => {
-    setUsers((prev) =>
-      prev.map((user) =>
-        user.id === userId ? { ...user, status: user.status === 'Active' ? 'Suspended' : 'Active' } : user
-      )
-    );
-    const updated = users.find((user) => user.id === userId);
-    showToast(
-      `${updated?.name || 'User'} has been ${
-        updated?.status === 'Active' ? 'suspended' : 'reactivated'
-      }`,
-      'success'
-    );
-  };
-
-  const toggleUserPermission = (userId, permission) => {
-    setUsers((prev) =>
-      prev.map((user) =>
-        user.id === userId
-          ? { ...user, permissions: { ...user.permissions, [permission]: !user.permissions[permission] } }
-          : user
-      )
-    );
-  };
-
-  const handleDeleteUser = (userId) => {
-    setUsers((prev) => prev.filter((user) => user.id !== userId));
-    showToast('User removed. Changes synced to the backend.', 'error');
-  };
-
-  const handleAddUser = () => {
-    const nextId = Math.max(...users.map((user) => user.id)) + 1;
-    setUsers((prev) => [
-      ...prev,
-      {
-        id: nextId,
-        name: `New User ${nextId}`,
-        role: 'Driver',
-        status: 'Active',
-        permissions: { read: true, write: false, manage: false }
-      }
-    ]);
-    showToast('User template added — customize the profile to activate it.');
   };
 
   const handleSaveSection = (sectionId) => {
@@ -289,16 +228,33 @@ export default function SettingsPage() {
 
   useEffect(() => {
     setSettings((prev) => {
-      if (prev.general.language === language && prev.ui.language === language) {
+      const countryDefaults = getCountryDefaults(appSettings.country);
+      const hasSameLanguage = prev.general.language === language && prev.ui.language === language;
+      const hasSameCountry = prev.general.country === appSettings.country;
+      const hasSameTheme = prev.ui.themeMode === appSettings.themeMode;
+      const hasSameAccent = prev.ui.accentTone === appSettings.accentTone;
+
+      if (hasSameLanguage && hasSameCountry && hasSameTheme && hasSameAccent) {
         return prev;
       }
+
       return {
         ...prev,
-        general: { ...prev.general, language },
-        ui: { ...prev.ui, language }
+        general: {
+          ...prev.general,
+          country: appSettings.country,
+          timezone: countryDefaults.timezone,
+          language
+        },
+        ui: {
+          ...prev.ui,
+          themeMode: appSettings.themeMode,
+          accentTone: appSettings.accentTone,
+          language
+        }
       };
     });
-  }, [language, setSettings]);
+  }, [appSettings.accentTone, appSettings.country, appSettings.themeMode, language, setSettings]);
 
   const handleLanguageSelect = (sectionId, value) => {
     handleFieldChange(sectionId, 'language', value);
@@ -398,6 +354,21 @@ export default function SettingsPage() {
                   <option value='UTC'>UTC</option>
                   <option value='GMT+3'>GMT+3</option>
                   <option value='CET'>CET (UTC+1)</option>
+                </select>
+              </label>
+
+              <label className='flex flex-col gap-2 text-sm font-medium text-slate-600'>
+                Country / Deployment profile
+                <select
+                  value={settings.general.country}
+                  onChange={(event) => handleFieldChange('general', 'country', event.target.value)}
+                  className='rounded-2xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none'
+                >
+                  <option value='Somalia'>Somalia</option>
+                  <option value='Kenya'>Kenya</option>
+                  <option value='Ethiopia'>Ethiopia</option>
+                  <option value='UAE'>UAE</option>
+                  <option value='Global'>Global</option>
                 </select>
               </label>
 
@@ -891,88 +862,6 @@ export default function SettingsPage() {
             </div>
           </div>
         );
-      case 'users':
-        return (
-          <div className='space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5'>
-            <div className='flex flex-col gap-3'>
-              <p className='text-xs font-semibold uppercase tracking-[0.4em] text-slate-400'>User Management</p>
-              <h2 className='text-2xl font-bold text-slate-900'>Roles, permissions & lifecycle</h2>
-            </div>
-
-            <div className='space-y-4'>
-              {users.map((user) => (
-                <div
-                  key={user.id}
-                  className='rounded-2xl border border-slate-100 bg-slate-50 p-4 shadow-inner shadow-slate-100'
-                >
-                  <div className='flex flex-wrap items-center justify-between gap-3'>
-                    <div>
-                      <p className='text-sm font-semibold text-slate-900'>{user.name}</p>
-                      <p className='text-xs text-slate-500'>Role: {user.role}</p>
-                    </div>
-                    <div className='flex items-center gap-2'>
-                      <select
-                        value={user.role}
-                        onChange={(event) => handleUserRoleChange(user.id, event.target.value)}
-                        className='rounded-2xl border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600'
-                      >
-                        {['Admin', 'Manager', 'Driver'].map((role) => (
-                          <option key={role} value={role}>
-                            {role}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type='button'
-                        onClick={() => toggleUserStatus(user.id)}
-                        className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-                          user.status === 'Active'
-                            ? 'bg-emerald-500 text-white'
-                            : 'border border-rose-300 bg-rose-50 text-rose-600'
-                        }`}
-                      >
-                        {user.status}
-                      </button>
-                      <button
-                        type='button'
-                        onClick={() => handleDeleteUser(user.id)}
-                        className='text-xs font-semibold text-rose-500 underline decoration-dashed underline-offset-2'
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                  <div className='mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-600'>
-                    {Object.entries(user.permissions).map(([permission, value]) => (
-                      <button
-                        key={permission}
-                        type='button'
-                        onClick={() => toggleUserPermission(user.id, permission)}
-                        className={`rounded-full border px-3 py-1 transition ${
-                          value
-                            ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                            : 'border-slate-200 bg-white text-slate-500'
-                        }`}
-                      >
-                        {permission} {value ? 'On' : 'Off'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className='flex items-center justify-between'>
-              <button type='button' onClick={handleAddUser} className={accentAction}>
-                Add user
-              </button>
-              <div className='flex items-center gap-2 text-sm text-slate-500'>
-                <Shield size={16} />
-                Audit logs available for every profile change.
-              </div>
-            </div>
-          </div>
-        );
       case 'ui':
         return (
           <div className='space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5'>
@@ -1020,98 +909,37 @@ export default function SettingsPage() {
                   <option value='Arabic'>Carabi</option>
                 </select>
               </label>
+
+              <div className='md:col-span-2'>
+                <p className='mb-2 text-sm font-medium text-slate-600'>System color profile</p>
+                <div className='flex flex-wrap gap-3'>
+                  {[
+                    { value: 'emerald', label: 'Emerald' },
+                    { value: 'sky', label: 'Sky' },
+                    { value: 'amber', label: 'Amber' },
+                    { value: 'rose', label: 'Rose' }
+                  ].map((tone) => (
+                    <button
+                      key={tone.value}
+                      type='button'
+                      onClick={() => handleFieldChange('ui', 'accentTone', tone.value)}
+                      className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                        settings.ui.accentTone === tone.value
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                          : 'border-slate-200 bg-white text-slate-600'
+                      }`}
+                    >
+                      {tone.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <div className='flex items-center justify-between'>
               <span className='text-sm text-slate-500'>Switch between desktop and tablet layouts on the fly.</span>
               <button type='button' onClick={() => handleSaveSection('ui')} className={secondaryAction}>
                 Save UI preferences
-              </button>
-            </div>
-          </div>
-        );
-      case 'backup':
-        return (
-          <div className='space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5'>
-            <div className='flex flex-col gap-3'>
-              <p className='text-xs font-semibold uppercase tracking-[0.4em] text-slate-400'>Backup & System</p>
-              <h2 className='text-2xl font-bold text-slate-900'>Data preservation & exports</h2>
-            </div>
-
-            <div className='grid gap-4 md:grid-cols-2'>
-              <label className='flex flex-col gap-2 text-sm font-medium text-slate-600'>
-                Backup mode
-                <div className='flex gap-3'>
-                  {['manual', 'auto'].map((mode) => (
-                    <button
-                      key={mode}
-                      type='button'
-                      onClick={() => handleFieldChange('backup', 'backupMode', mode)}
-                      className={`rounded-full border px-4 py-2 text-sm transition ${
-                        settings.backup.backupMode === mode
-                          ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                          : 'border-slate-200 bg-white text-slate-500'
-                      }`}
-                    >
-                      {mode === 'auto' ? 'Auto' : 'Manual'}
-                    </button>
-                  ))}
-                </div>
-              </label>
-
-              <label className='flex flex-col gap-2 text-sm font-medium text-slate-600'>
-                Export format
-                <select
-                  value={settings.backup.exportFormat}
-                  onChange={(event) => handleFieldChange('backup', 'exportFormat', event.target.value)}
-                  className='rounded-2xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-900 focus:border-emerald-500 focus:outline-none'
-                >
-                  <option value='CSV'>CSV</option>
-                  <option value='Excel'>Excel</option>
-                  <option value='JSON'>JSON</option>
-                </select>
-              </label>
-
-              <div className='flex flex-col gap-2 text-sm font-medium text-slate-600'>
-                <p>System logs</p>
-                <div className='space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-xs text-slate-600'>
-                  {systemLogs.map((log) => (
-                    <div key={log.id}>
-                      <p className='text-sm font-semibold text-slate-900'>{log.title}</p>
-                      <p>{log.detail}</p>
-                      <p className='text-[0.7em] text-slate-400'>{log.time}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className='flex flex-col gap-2 text-sm font-medium text-slate-600'>
-                <p>API key</p>
-                <div className='rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 shadow-sm'>
-                  <div className='flex items-center justify-between'>
-                    <span>{settings.backup.apiKeyAlias}</span>
-                    <button
-                      type='button'
-                      onClick={() => showToast('API key copied to clipboard')}
-                      className='text-xs font-semibold text-emerald-600'
-                    >
-                      Copy
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className='flex items-center justify-between'>
-              <button type='button' onClick={() => handleSaveSection('backup')} className={secondaryAction}>
-                Save backup plan
-              </button>
-              <button
-                type='button'
-                onClick={() => showToast('Export started. You will receive a download link soon.')}
-                className={accentAction}
-              >
-                Export data
               </button>
             </div>
           </div>
@@ -1131,87 +959,74 @@ export default function SettingsPage() {
   return (
     <div className='min-h-screen bg-gradient-to-b from-slate-100 to-slate-200'>
       <div className='mx-auto flex max-w-[1120px] flex-col gap-8 px-4 py-8 sm:px-6 lg:px-8 lg:py-12'>
-        <header className='space-y-3 text-left'>
-          <p className='text-xs font-semibold uppercase tracking-[0.4em] text-slate-400'>Logistics control</p>
-          <h1 className='text-5xl font-bold text-[#0f766e]'>Settings</h1>
-          <p className='text-base text-slate-600'>
-            Configure company details, fleet policies, GPS rules and alerts for the entire operation.
-          </p>
-          <div className='flex flex-wrap items-center justify-end gap-3'>
-            <button
-              type='button'
-              className={accentAction}
-              onClick={() => setAlertHistoryOpen((prev) => !prev)}
-            >
-              Alert history
-            </button>
-          </div>
-        </header>
+        <div className='grid gap-4 lg:grid-cols-2'>
+          <article className='h-full rounded-3xl border border-slate-100 bg-slate-50/80 p-5 shadow-none'>
+            <div className='flex items-center gap-2 text-slate-600'>
+              <Truck size={20} />
+              <p className='text-2xl font-bold text-slate-900'>Live telemetry</p>
+            </div>
+            <div className='mt-4 grid gap-3 sm:grid-cols-2'>
+              <div className='flex min-h-[170px] flex-col justify-between rounded-2xl border border-slate-100 bg-white/80 px-5 py-4'>
+                <div className='flex items-center gap-2 text-sm font-bold uppercase tracking-[0.2em] text-slate-500'>
+                  <span>Vehicles reporting</span>
+                  <span className='h-px w-6 bg-slate-300' />
+                  <span className='text-lg font-semibold text-emerald-600'>{vehicles.length}</span>
+                </div>
+                <p className='mt-2 font-bold text-slate-900' style={{ fontSize: '2em' }}>{vehicles.length}</p>
+                <div className='mt-2 text-sm font-bold uppercase tracking-[0.2em] text-slate-600'>
+                  Updated {liveTimestamp}
+                </div>
+              </div>
+              <div className='flex min-h-[170px] flex-col justify-between rounded-2xl border border-emerald-200 bg-emerald-50/70 px-5 py-4'>
+                <div className='flex items-center gap-2 text-sm font-bold uppercase tracking-[0.2em] text-emerald-700'>
+                  <Bell size={16} />
+                  <span>Alerts enabled</span>
+                  <span className='h-px w-6 bg-emerald-200' />
+                  <span className='text-lg font-semibold text-emerald-600'>{activeAlertCount}</span>
+                </div>
+                <p className='mt-2 font-bold text-emerald-700' style={{ fontSize: '2em' }}>{activeAlertCount}</p>
+                <div className='mt-2 text-sm font-bold uppercase tracking-[0.2em] text-emerald-700'>
+                  Idle / offline {idleVehicles}
+                </div>
+              </div>
+            </div>
+          </article>
 
-        {alertHistoryOpen && (
-          <div className='mt-2 rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_20px_60px_rgba(15,23,42,0.25)]'>
+          <article className='h-full rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_20px_60px_rgba(15,23,42,0.12)]'>
             <div className='flex items-center justify-between'>
-              <p className='text-sm font-semibold text-slate-900'>Alert history</p>
+              <p className='text-2xl font-bold text-slate-900'>Alert history</p>
               <button
                 type='button'
-                onClick={() => setAlertHistoryOpen(false)}
-                className='text-slate-500 transition hover:text-slate-900'
-                aria-label='Close alert history'
+                className={`${accentAction} px-6 py-2.5 text-base`}
+                onClick={() => setAlertHistoryOpen((prev) => !prev)}
               >
-                <X size={16} />
+                {alertHistoryOpen ? 'Hide' : 'Show'}
               </button>
             </div>
-            <div className='mt-3 space-y-3 text-xs text-slate-500'>
-              {notificationHistory.slice(0, 3).map((notification) => (
-                <div key={notification.id} className='flex items-start justify-between'>
-                  <div>
-                    <p className='text-sm font-semibold text-slate-900'>{notification.type}</p>
-                    <p className='text-[0.8em]'>{notification.message}</p>
-                    <p className='text-[0.65em] text-slate-400'>{notification.timestamp}</p>
+            {alertHistoryOpen ? (
+              <div className='mt-3 space-y-3 text-sm text-slate-500'>
+                {notificationHistory.slice(0, 3).map((notification) => (
+                  <div key={notification.id} className='flex items-start justify-between'>
+                    <div>
+                      <p className='text-lg font-semibold text-slate-900'>{notification.type}</p>
+                      <p className='text-base'>{notification.message}</p>
+                      <p className='text-sm text-slate-400'>{notification.timestamp}</p>
+                    </div>
+                    <span className='text-[0.7em] uppercase tracking-[0.2em] text-slate-400'>
+                      {notification.channel}
+                    </span>
                   </div>
-                  <span className='text-[0.6em] uppercase tracking-[0.3em] text-slate-400'>
-                    {notification.channel}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+                ))}
+              </div>
+            ) : (
+              <p className='mt-3 text-sm text-slate-500'>Tap show to view recent notification events.</p>
+            )}
+          </article>
+        </div>
+
         <div className='rounded-[40px] border border-slate-200 bg-white/80 p-6 shadow-[0_35px_80px_rgba(15,23,42,0.15)] backdrop-blur-sm'>
           <div className='grid gap-8 lg:grid-cols-[280px_minmax(0,820px)]'>
             <aside className='space-y-6'>
-              <div className='rounded-3xl border border-slate-100 bg-slate-50/80 p-5 shadow-none'>
-                <div className='flex items-center gap-2 text-slate-600'>
-                  <Truck size={18} />
-                  <p className='text-sm font-semibold text-slate-900'>Live telemetry</p>
-                </div>
-                <div className='mt-4 space-y-3'>
-                  <div className='rounded-2xl border border-slate-100 bg-white/80 px-4 py-3'>
-                    <div className='flex items-center gap-2 text-[0.65em] uppercase tracking-[0.3em] text-slate-400'>
-                      <span>Vehicles reporting</span>
-                      <span className='h-px w-6 bg-slate-300' />
-                      <span className='text-xs font-semibold text-emerald-600'>{vehicles.length}</span>
-                    </div>
-                    <p className='mt-2 text-3xl font-semibold text-slate-900'>{vehicles.length}</p>
-                    <div className='mt-2 text-[0.7em] uppercase tracking-[0.3em] text-slate-500'>
-                      Updated {liveTimestamp}
-                    </div>
-                  </div>
-                  <div className='rounded-2xl border border-emerald-200 bg-emerald-50/70 px-4 py-3'>
-                    <div className='flex items-center gap-2 text-[0.65em] uppercase tracking-[0.3em] text-emerald-700'>
-                      <Bell size={14} />
-                      <span>Alerts enabled</span>
-                      <span className='h-px w-6 bg-emerald-200' />
-                      <span className='text-xs font-semibold text-emerald-600'>{activeAlertCount}</span>
-                    </div>
-                    <p className='mt-2 text-3xl font-semibold text-emerald-700'>{activeAlertCount}</p>
-                    <div className='mt-2 text-[0.65em] uppercase tracking-[0.3em] text-emerald-600'>
-                      Idle / offline {idleVehicles}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
               <div className='rounded-3xl border border-slate-100 bg-white p-5 shadow'>
                 <p className='text-sm font-semibold text-slate-900'>Sections</p>
                 <div className='mt-3 space-y-2'>
@@ -1243,7 +1058,6 @@ export default function SettingsPage() {
                   })}
                 </div>
               </div>
-
             </aside>
 
             <section className='space-y-5'>{activeSectionContent()}</section>

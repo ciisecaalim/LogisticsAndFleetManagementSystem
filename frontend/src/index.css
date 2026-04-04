@@ -2,16 +2,26 @@
 
 :root {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  --app-accent: #10B981;
+  --app-accent-strong: #1E293B;
+  --app-layout-bg: #64748B;
+  --app-surface-bg: #ffffff;
+  --app-card-bg: #ffffff;
+  --app-text-main: #1E293B;
+  --app-text-muted: #64748B;
+  --app-sidebar-from: #1E293B;
+  --app-sidebar-to: #64748B;
+  --app-topbar-bg: #ffffff;
   --color-background: #101828;
   --color-background-soft: #111b2c;
-  --color-panel: #1e293b;
+  --color-panel: #1E293B;
   --color-panel-strong: #0f172a;
   --color-ink: #f8fafc;
   --color-ink-muted: rgba(248, 250, 252, 0.75);
   --color-ink-dark: #0f172a;
-  --color-slate: #64748b;
-  --color-amber: #f59e0b;
-  --color-emerald: #10b981;
+  --color-slate: #64748B;
+  --color-amber: #F59E0B;
+  --color-emerald: #10B981;
   --color-border-soft: rgba(146, 165, 195, 0.25);
   --color-muted: rgba(248, 250, 252, 0.55);
   --color-shadow-soft: 0 30px 60px rgba(15, 23, 42, 0.45);
@@ -55,7 +65,7 @@ body {
 }
 
 .page-title {
-  color: var(--color-emerald) !important;
+  color: var(--app-accent) !important;
 }
 
 .bg-panel {
