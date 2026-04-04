@@ -60,6 +60,22 @@ export default function VehicleMarker({ vehicle }) {
               <span className='font-semibold'>{vehicle.driver}</span>
             </div>
             <div className='flex items-center justify-between gap-3'>
+              <span className='text-[#64748B]'>Tracker ID</span>
+              <span className='font-semibold'>{vehicle.trackerId || 'N/A'}</span>
+            </div>
+            <div className='flex items-center justify-between gap-3'>
+              <span className='text-[#64748B]'>Vehicle ID</span>
+              <span className='font-semibold'>{vehicle.vehicleId || 'N/A'}</span>
+            </div>
+            <div className='flex items-center justify-between gap-3'>
+              <span className='text-[#64748B]'>Driver ID</span>
+              <span className='font-semibold'>{vehicle.driverId || 'N/A'}</span>
+            </div>
+            <div className='flex items-center justify-between gap-3'>
+              <span className='text-[#64748B]'>Trip ID</span>
+              <span className='font-semibold'>{vehicle.tripId || 'N/A'}</span>
+            </div>
+            <div className='flex items-center justify-between gap-3'>
               <span className='text-[#64748B]'>Status</span>
               <span className='rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-700'>{vehicle.status}</span>
             </div>
@@ -78,6 +94,12 @@ export default function VehicleMarker({ vehicle }) {
             <div className='flex items-center justify-between gap-3'>
               <span className='text-[#64748B]'>Distance</span>
               <span className='font-semibold'>{vehicle.distanceTraveledKm.toFixed(1)} km</span>
+            </div>
+            <div className='flex items-center justify-between gap-3'>
+              <span className='text-[#64748B]'>GPS</span>
+              <span className='font-semibold'>
+                {Number(vehicle.lat || 0).toFixed(5)}, {Number(vehicle.lng || 0).toFixed(5)}
+              </span>
             </div>
           </div>
         </div>

@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import 'leaflet/dist/leaflet.css';
-import { Activity, BellRing, MapPinned, RefreshCw, Search, TriangleAlert, Truck } from 'lucide-react';
+import { Activity, BellRing, LocateFixed, MapPinned, Navigation, RefreshCw, Search, TriangleAlert, Truck } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import FleetMapContainer from '../components/map/MapContainer';
 import api, { API_BASE_URL } from '../services/api';
 
 const MAP_CACHE_KEY = 'lfms_map_vehicles_live';
 const TRIPS_CACHE_KEY = 'lfms_map_trips_live';
-const DEFAULT_CENTER = [40.7128, -74.006];
+const DAYNIILE_CENTER = { lat: 2.0504, lng: 45.3298, label: 'Dayniile, Somalia' };
+const DEFAULT_CENTER = [DAYNIILE_CENTER.lat, DAYNIILE_CENTER.lng];
 const STATUS_FILTERS = ['All', 'Available', 'Assigned', 'Off'];
 
 function normalizeVehicle(item) {
@@ -15,6 +16,7 @@ function normalizeVehicle(item) {
     id: item.id || item._id || item.vehicleId || item.plateNumber,
     vehicleId: item.vehicleId || item.id || item._id,
     trackerId: item.trackerId || '',
+    tripId: item.tripId || '',
     plateNumber: item.plateNumber || item.name || 'Unknown',
     name: item.plateNumber || item.name || 'Unknown',
     model: item.model || 'Unknown',
@@ -99,6 +101,50 @@ export default function FleetMapPage() {
   const [searchTerm, setSearchTerm] = useState(focusPlate);
   const [statusFilter, setStatusFilter] = useState('All');
   const [driverFilter, setDriverFilter] = useState('All');
+  const [myGps, setMyGps] = useState(null);
+  const [locating, setLocating] = useState(false);
+  const [gpsError, setGpsError] = useState('');
+  const [mapFocusMode, setMapFocusMode] = useState('auto');
+  const [navRoutePoints, setNavRoutePoints] = useState([]);
+  const [navDistanceKm, setNavDistanceKm] = useState(null);
+  const [navDurationMin, setNavDurationMin] = useState(null);
+  const [navLoading, setNavLoading] = useState(false);
+  const [navError, setNavError] = useState('');
+  const [routeStartInput, setRouteStartInput] = useState('Your location');
+  const [routeDestinationInput, setRouteDestinationInput] = useState('');
+  const [manualDestination, setManualDestination] = useState(null);
+  const [destinationSearching, setDestinationSearching] = useState(false);
+  const [routePanelTab, setRoutePanelTab] = useState('details');
+
+  const handleUseMyGps = () => {
+    if (!navigator.geolocation) {
+      setGpsError('Geolocation is not supported in this browser.');
+      return;
+    }
+
+    setLocating(true);
+    setGpsError('');
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setMyGps({
+          lat: Number(position.coords.latitude),
+          lng: Number(position.coords.longitude)
+        });
+        setMapFocusMode('my-location');
+        setLocating(false);
+      },
+      () => {
+        setGpsError('Unable to read your GPS location. Please allow location access.');
+        setLocating(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 12000,
+        maximumAge: 10000
+      }
+    );
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -175,6 +221,15 @@ export default function FleetMapPage() {
     }
   }, [focusPlate]);
 
+  useEffect(() => {
+    if (myGps?.lat && myGps?.lng) {
+      setRouteStartInput('Your location');
+      return;
+    }
+
+    setRouteStartInput(DAYNIILE_CENTER.label);
+  }, [myGps]);
+
   const driverOptions = useMemo(() => {
     const names = new Set(vehicles.map((vehicle) => vehicle.driver).filter(Boolean));
     return ['All', ...Array.from(names).sort((a, b) => a.localeCompare(b))];
@@ -195,10 +250,50 @@ export default function FleetMapPage() {
         return true;
       }
 
-      const haystack = `${vehicle.plateNumber} ${vehicle.driver} ${vehicle.status} ${vehicle.location} ${vehicle.model}`.toLowerCase();
+      const haystack = [
+        vehicle.plateNumber,
+        vehicle.driver,
+        vehicle.status,
+        vehicle.location,
+        vehicle.model,
+        vehicle.trackerId,
+        vehicle.driverId,
+        vehicle.vehicleId,
+        vehicle.tripId
+      ]
+        .join(' ')
+        .toLowerCase();
       return haystack.includes(needle);
     });
   }, [vehicles, searchTerm, statusFilter, driverFilter]);
+
+  const matchedVehicle = useMemo(() => {
+    const needle = searchTerm.trim().toLowerCase();
+
+    if (!needle) {
+      return null;
+    }
+
+    const exact = filteredVehicles.find((vehicle) => {
+      const keys = [
+        vehicle.plateNumber,
+        vehicle.trackerId,
+        vehicle.vehicleId,
+        vehicle.driverId,
+        vehicle.tripId
+      ]
+        .filter(Boolean)
+        .map((item) => String(item).toLowerCase());
+
+      return keys.includes(needle);
+    });
+
+    if (exact) {
+      return exact;
+    }
+
+    return filteredVehicles[0] || null;
+  }, [filteredVehicles, searchTerm]);
 
   const highlightedVehicle = useMemo(() => {
     if (!focusPlate) {
@@ -209,7 +304,176 @@ export default function FleetMapPage() {
     return vehicles.find((vehicle) => vehicle.plateNumber.toLowerCase() === normalizedPlate) || null;
   }, [focusPlate, vehicles]);
 
+  const destinationFocus = useMemo(() => {
+    if (matchedVehicle?.destination?.lat && matchedVehicle?.destination?.lng) {
+      return {
+        lat: Number(matchedVehicle.destination.lat),
+        lng: Number(matchedVehicle.destination.lng),
+        label: matchedVehicle.destination.label || 'Vehicle destination'
+      };
+    }
+
+    const linkedTrip = trips.find(
+      (trip) =>
+        (matchedVehicle?.tripId && trip.tripId === matchedVehicle.tripId) ||
+        (matchedVehicle?.vehicleId && trip.vehicleId === matchedVehicle.vehicleId)
+    );
+
+    if (linkedTrip?.destination?.lat && linkedTrip?.destination?.lng) {
+      return {
+        lat: Number(linkedTrip.destination.lat),
+        lng: Number(linkedTrip.destination.lng),
+        label: linkedTrip.destination.label || linkedTrip.to || 'Trip destination'
+      };
+    }
+
+    return null;
+  }, [matchedVehicle, trips]);
+
+  useEffect(() => {
+    if (manualDestination) {
+      return;
+    }
+
+    if (!routeDestinationInput && destinationFocus?.label) {
+      setRouteDestinationInput(destinationFocus.label);
+    }
+  }, [destinationFocus, manualDestination, routeDestinationInput]);
+
+  const routeStartPoint = useMemo(() => {
+    if (myGps?.lat && myGps?.lng) {
+      return {
+        lat: myGps.lat,
+        lng: myGps.lng,
+        label: 'Your location'
+      };
+    }
+
+    return {
+      lat: DAYNIILE_CENTER.lat,
+      lng: DAYNIILE_CENTER.lng,
+      label: DAYNIILE_CENTER.label
+    };
+  }, [myGps]);
+
+  const routeEndPoint = manualDestination || destinationFocus;
+
+  const handleFindDestination = async () => {
+    const query = routeDestinationInput.trim();
+
+    if (!query) {
+      setManualDestination(null);
+      return;
+    }
+
+    setDestinationSearching(true);
+    setNavError('');
+
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`
+      );
+
+      if (!response.ok) {
+        throw new Error('Destination lookup failed');
+      }
+
+      const results = await response.json();
+      const first = Array.isArray(results) ? results[0] : null;
+
+      if (!first) {
+        setManualDestination(null);
+        setNavError('Destination not found. Try a more specific place name.');
+        return;
+      }
+
+      setManualDestination({
+        lat: Number(first.lat),
+        lng: Number(first.lon),
+        label: first.display_name
+      });
+      setMapFocusMode('destination');
+    } catch {
+      setNavError('Could not search destination right now.');
+    } finally {
+      setDestinationSearching(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!routeStartPoint || !routeEndPoint) {
+      setNavRoutePoints([]);
+      setNavDistanceKm(null);
+      setNavDurationMin(null);
+      setNavError('');
+      return;
+    }
+
+    let isMounted = true;
+
+    async function fetchRoadRoute() {
+      setNavLoading(true);
+      setNavError('');
+
+      try {
+        const response = await fetch(
+          `https://router.project-osrm.org/route/v1/driving/${routeStartPoint.lng},${routeStartPoint.lat};${routeEndPoint.lng},${routeEndPoint.lat}?overview=full&geometries=geojson`
+        );
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch route');
+        }
+
+        const payload = await response.json();
+        const route = payload?.routes?.[0];
+
+        if (!route || !Array.isArray(route.geometry?.coordinates)) {
+          throw new Error('No route available');
+        }
+
+        if (!isMounted) {
+          return;
+        }
+
+        const points = route.geometry.coordinates.map(([lng, lat]) => [Number(lat), Number(lng)]);
+        setNavRoutePoints(points);
+        setNavDistanceKm(Number(route.distance || 0) / 1000);
+        setNavDurationMin(Number(route.duration || 0) / 60);
+      } catch {
+        if (!isMounted) {
+          return;
+        }
+        setNavRoutePoints([]);
+        setNavDistanceKm(null);
+        setNavDurationMin(null);
+        setNavError('Road route unavailable right now. Showing live map only.');
+      } finally {
+        if (isMounted) {
+          setNavLoading(false);
+        }
+      }
+    }
+
+    fetchRoadRoute();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [routeEndPoint, routeStartPoint]);
+
   const mapCenter = useMemo(() => {
+    if (mapFocusMode === 'my-location' && myGps?.lat && myGps?.lng) {
+      return [myGps.lat, myGps.lng];
+    }
+
+    if (mapFocusMode === 'destination' && routeEndPoint?.lat && routeEndPoint?.lng) {
+      return [routeEndPoint.lat, routeEndPoint.lng];
+    }
+
+    if (matchedVehicle && matchedVehicle.lat && matchedVehicle.lng) {
+      return [matchedVehicle.lat, matchedVehicle.lng];
+    }
+
     if (highlightedVehicle && highlightedVehicle.lat && highlightedVehicle.lng) {
       return [highlightedVehicle.lat, highlightedVehicle.lng];
     }
@@ -221,8 +485,12 @@ export default function FleetMapPage() {
       }
     }
 
+    if (myGps && myGps.lat && myGps.lng) {
+      return [myGps.lat, myGps.lng];
+    }
+
     return DEFAULT_CENTER;
-  }, [filteredVehicles, highlightedVehicle]);
+  }, [filteredVehicles, highlightedVehicle, mapFocusMode, matchedVehicle, myGps, routeEndPoint]);
 
   const routeColors = {
     Ongoing: '#2563EB',
@@ -259,7 +527,7 @@ export default function FleetMapPage() {
   const assignedCount = vehicles.filter((vehicle) => vehicle.status === 'Assigned').length;
   const offCount = vehicles.filter((vehicle) => vehicle.status === 'Off').length;
 
-  const mapZoomKey = `${mapCenter[0]}-${mapCenter[1]}-${searchTerm}-${statusFilter}-${driverFilter}-${filteredVehicles.length}`;
+  const mapZoomKey = `${mapCenter[0]}-${mapCenter[1]}-${mapFocusMode}-${myGps?.lat || ''}-${myGps?.lng || ''}-${routeEndPoint?.lat || ''}-${routeEndPoint?.lng || ''}-${searchTerm}-${statusFilter}-${driverFilter}-${filteredVehicles.length}`;
 
   return (
     <section className='space-y-5 pb-4'>
@@ -284,8 +552,179 @@ export default function FleetMapPage() {
             <p className='m-0 text-xs'>
               Last sync: {lastRefreshAt ? lastRefreshAt.toLocaleTimeString() : 'Waiting for first sync...'}
             </p>
+            <button
+              type='button'
+              onClick={handleUseMyGps}
+              disabled={locating}
+              className='mt-2 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 disabled:opacity-60'
+            >
+              <LocateFixed size={14} />
+              {locating ? 'Reading GPS...' : 'Use My GPS'}
+            </button>
           </div>
         </div>
+
+        {gpsError ? (
+          <p className='mt-3 inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700'>
+            <TriangleAlert size={14} />
+            {gpsError}
+          </p>
+        ) : null}
+
+        {myGps ? (
+          <p className='mt-3 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-900'>
+            Your GPS: {myGps.lat.toFixed(5)}, {myGps.lng.toFixed(5)}
+          </p>
+        ) : null}
+
+        {routeEndPoint ? (
+          <p className='mt-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-900'>
+            Destination: {routeEndPoint.label} ({routeEndPoint.lat.toFixed(5)}, {routeEndPoint.lng.toFixed(5)})
+          </p>
+        ) : null}
+
+          {routeStartPoint && routeEndPoint ? (
+            <div className='mt-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-900'>
+              <p className='m-0 inline-flex items-center gap-2'>
+                <Navigation size={14} />
+                {navLoading
+                  ? 'Calculating road route...'
+                  : navDistanceKm && navDurationMin
+                    ? `Route via roads: ${navDistanceKm.toFixed(1)} km • ${Math.round(navDurationMin)} min`
+                    : 'Route metrics unavailable'}
+              </p>
+              {navError ? <p className='m-0 mt-1 text-[11px] text-amber-700'>{navError}</p> : null}
+            </div>
+          ) : null}
+
+        <div className='mt-3 flex flex-wrap items-center gap-2'>
+          <button
+            type='button'
+            onClick={() => setMapFocusMode('auto')}
+            className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+              mapFocusMode === 'auto'
+                ? 'border-slate-900 bg-slate-900 text-white'
+                : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
+            }`}
+          >
+            Vehicle
+          </button>
+          <button
+            type='button'
+            onClick={() => setMapFocusMode('my-location')}
+            disabled={!myGps}
+            className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50 ${
+              mapFocusMode === 'my-location'
+                ? 'border-blue-700 bg-blue-700 text-white'
+                : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
+            }`}
+          >
+            My Location
+          </button>
+          <button
+            type='button'
+            onClick={() => setMapFocusMode('destination')}
+            disabled={!routeEndPoint}
+            className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50 ${
+              mapFocusMode === 'destination'
+                ? 'border-emerald-700 bg-emerald-700 text-white'
+                : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
+            }`}
+          >
+            Destination
+          </button>
+          <button
+            type='button'
+            onClick={() => {
+              setMyGps({ lat: DAYNIILE_CENTER.lat, lng: DAYNIILE_CENTER.lng });
+              setRouteStartInput(DAYNIILE_CENTER.label);
+              setMapFocusMode('my-location');
+              setGpsError('');
+            }}
+            className='rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100'
+          >
+            Dayniile
+          </button>
+        </div>
+
+        <p className='mt-2 text-xs font-medium text-slate-500'>
+          Default map area is {DAYNIILE_CENTER.label}.
+        </p>
+
+        <section className='mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4'>
+          <div className='grid gap-3 lg:grid-cols-[2fr_1fr]'>
+            <div className='space-y-2'>
+              <input
+                value={routeStartInput}
+                onChange={(event) => setRouteStartInput(event.target.value)}
+                placeholder='Start location'
+                className='w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-400'
+              />
+              <div className='flex gap-2'>
+                <input
+                  value={routeDestinationInput}
+                  onChange={(event) => {
+                    setRouteDestinationInput(event.target.value);
+                    setManualDestination(null);
+                  }}
+                  placeholder='Destination (example: Dayniile Hospital)'
+                  className='w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-400'
+                />
+                <button
+                  type='button'
+                  onClick={handleFindDestination}
+                  disabled={destinationSearching}
+                  className='rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-60'
+                >
+                  {destinationSearching ? 'Finding...' : 'Find Route'}
+                </button>
+              </div>
+            </div>
+            <div className='rounded-xl border border-slate-200 bg-white p-3'>
+              <p className='m-0 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500'>Leave now</p>
+              <p className='m-0 mt-1 text-sm font-semibold text-slate-800'>Driving route mode</p>
+              <p className='m-0 mt-2 text-xs text-slate-600'>
+                {navDistanceKm && navDurationMin
+                  ? `${navDistanceKm.toFixed(1)} km • ${Math.round(navDurationMin)} min`
+                  : 'Distance/time updates after route search'}
+              </p>
+            </div>
+          </div>
+
+          <div className='mt-3 flex items-center gap-2'>
+            <button
+              type='button'
+              onClick={() => setRoutePanelTab('details')}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                routePanelTab === 'details' ? 'bg-slate-900 text-white' : 'bg-white text-slate-700'
+              }`}
+            >
+              Details
+            </button>
+            <button
+              type='button'
+              onClick={() => setRoutePanelTab('preview')}
+              className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                routePanelTab === 'preview' ? 'bg-slate-900 text-white' : 'bg-white text-slate-700'
+              }`}
+            >
+              Preview
+            </button>
+          </div>
+
+          {routePanelTab === 'details' ? (
+            <div className='mt-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700'>
+              <p className='m-0'>Start: {routeStartPoint?.label || routeStartInput}</p>
+              <p className='m-0 mt-1'>Destination: {routeEndPoint?.label || routeDestinationInput || 'Not selected'}</p>
+              {navError ? <p className='m-0 mt-1 text-amber-700'>{navError}</p> : null}
+            </div>
+          ) : (
+            <div className='mt-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700'>
+              <p className='m-0'>Route preview is active on the map.</p>
+              <p className='m-0 mt-1'>Use My Location, Destination, and Find Route to refresh the path.</p>
+            </div>
+          )}
+        </section>
 
         <div className='mt-4 grid gap-3 md:grid-cols-4'>
           <label className='relative md:col-span-2'>
@@ -293,7 +732,7 @@ export default function FleetMapPage() {
             <input
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder='Search plate, driver, status, route...'
+              placeholder='Search plate, trackerId, vehicleId, driverId, or tripId (e.g. A123)'
               className='w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 outline-none transition focus:border-blue-400'
             />
           </label>
@@ -350,6 +789,20 @@ export default function FleetMapPage() {
         </p>
       ) : null}
 
+      {matchedVehicle ? (
+        <section className='rounded-2xl border border-blue-200 bg-blue-50 p-4 shadow-sm'>
+          <h2 className='m-0 text-lg font-semibold text-blue-900'>Matched Tracker Result</h2>
+          <div className='mt-2 grid gap-2 text-sm text-blue-900 sm:grid-cols-2 lg:grid-cols-3'>
+            <p className='m-0'><span className='font-semibold'>Plate:</span> {matchedVehicle.plateNumber}</p>
+            <p className='m-0'><span className='font-semibold'>Tracker ID:</span> {matchedVehicle.trackerId || 'N/A'}</p>
+            <p className='m-0'><span className='font-semibold'>Vehicle ID:</span> {matchedVehicle.vehicleId || 'N/A'}</p>
+            <p className='m-0'><span className='font-semibold'>Driver ID:</span> {matchedVehicle.driverId || 'N/A'}</p>
+            <p className='m-0'><span className='font-semibold'>Trip ID:</span> {matchedVehicle.tripId || 'N/A'}</p>
+            <p className='m-0'><span className='font-semibold'>GPS:</span> {matchedVehicle.lat.toFixed(5)}, {matchedVehicle.lng.toFixed(5)}</p>
+          </div>
+        </section>
+      ) : null}
+
       {notifications.length > 0 ? (
         <section className='rounded-2xl border border-slate-200 bg-white p-4 shadow-sm'>
           <h2 className='m-0 inline-flex items-center gap-2 text-lg font-semibold text-slate-900'>
@@ -374,10 +827,13 @@ export default function FleetMapPage() {
 
       <FleetMapContainer
         vehicles={filteredVehicles}
-        routePoints={[]}
+        routePoints={navRoutePoints}
         center={mapCenter}
         zoomKey={mapZoomKey}
         tripRoutes={tripRoutes}
+        selectedStart={routeStartPoint ? { label: routeStartPoint.label } : null}
+        selectedEnd={routeEndPoint ? { label: routeEndPoint.label } : null}
+        gpsLocation={myGps}
       />
 
       <section className='rounded-2xl border border-slate-200 bg-white p-4 shadow-sm'>

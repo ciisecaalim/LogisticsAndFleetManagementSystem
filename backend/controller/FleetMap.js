@@ -187,6 +187,7 @@ const buildSnapshot = async () => {
       id: String(vehicle._id),
       vehicleId: vehicle.vehicleId || String(vehicle._id),
       trackerId: vehicle.trackerId || "",
+      tripId: tripSnapshot?.tripId || "",
       plateNumber: vehicle.plateNumber,
       name: vehicle.plateNumber,
       model: vehicle.model,
