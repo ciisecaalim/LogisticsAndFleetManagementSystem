@@ -1,5 +1,7 @@
 const mongoose = require("mongoose");
 const Driver = require("../model/Drivers");
+const { archiveRecord } = require("../services/recycleBinService");
+const { getDeletedByValue } = require("../utils/deletionContext");
 
 const normalizeDriverPayload = (payload = {}) => {
   const body = { ...payload };
@@ -131,15 +133,23 @@ const deleteDriver = async (req, res) => {
   }
 
   try {
-    const dl = await Driver.findOneAndDelete(query);
+    const driver = await Driver.findOne(query);
 
-    if (!dl) {
+    if (!driver) {
       return res.status(404).json({ message: "Driver not found" });
     }
 
+    await archiveRecord({
+      type: "Driver",
+      document: driver,
+      deletedBy: getDeletedByValue(req)
+    });
+
+    await driver.deleteOne();
+
     res.status(200).json({
       message: "Deleted successfully",
-      data: dl
+      data: driver
     });
   } catch (error) {
     res.status(500).json({

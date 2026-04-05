@@ -10,6 +10,7 @@ import SettingsPage from './pages/SettingsPage';
 import TripsPage from './pages/TripsPage';
 import VehiclesPage from './pages/VehiclesPage';
 import DashboardLayout from './layouts/DashboardLayout';
+import RecyclePinPage from './pages/RecyclePinPage';
 
 function App() {
   return (
@@ -26,6 +27,7 @@ function App() {
         <Route path='/fuel' element={<FuelPage />} />
         <Route path='/maintenance' element={<MaintenancePage />} />
         <Route path='/fleet-map' element={<FleetMapPage />} />
+        <Route path='/recycle-pin' element={<RecyclePinPage />} />
         <Route path='/map-links' element={<Navigate to='/fleet-map' replace />} />
         <Route path='*' element={<Navigate to='/fleet-map' replace />} />
       </Route>

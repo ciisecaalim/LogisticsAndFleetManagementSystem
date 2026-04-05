@@ -1,5 +1,7 @@
 const mongoose = require("mongoose");
 const Fuel = require("../model/fuel");
+const { archiveRecord } = require("../services/recycleBinService");
+const { getDeletedByValue } = require("../utils/deletionContext");
 
 const buildFuelQuery = (paramId) => {
   if (paramId === undefined || paramId === null) {
@@ -116,15 +118,23 @@ const deleteFuel = async (req, res) => {
   }
 
   try {
-    const dl = await Fuel.findOneAndDelete(query);
+    const record = await Fuel.findOne(query);
 
-    if (!dl) {
+    if (!record) {
       return res.status(404).json({ message: "Fuel record not found" });
     }
 
+    await archiveRecord({
+      type: "Fuel",
+      document: record,
+      deletedBy: getDeletedByValue(req)
+    });
+
+    await record.deleteOne();
+
     res.status(200).json({
       message: "Deleted successfully",
-      data: dl
+      data: record
     });
   } catch (error) {
     res.status(500).json({

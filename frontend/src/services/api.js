@@ -9,9 +9,10 @@ function unwrapResponse(payload) {
 }
 
 async function request(path, options = {}) {
+  const { headers: userHeaders, ...rest } = options;
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options
+    headers: { 'Content-Type': 'application/json', ...userHeaders },
+    ...rest
   });
 
   if (!response.ok) {
@@ -37,27 +38,30 @@ export const api = {
   getVehicles: () => request('/vehicles'),
   createVehicle: (payload) => request('/vehicles', { method: 'POST', body: JSON.stringify(payload) }),
   updateVehicle: (id, payload) => request(`/vehicles/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
-  deleteVehicle: (id) => request(`/vehicles/${id}`, { method: 'DELETE' }),
+  deleteVehicle: (id, options = {}) => request(`/vehicles/${id}`, { method: 'DELETE', ...options }),
 
   getDrivers: () => request('/drivers'),
   createDriver: (payload) => request('/drivers', { method: 'POST', body: JSON.stringify(payload) }),
   updateDriver: (id, payload) => request(`/drivers/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
-  deleteDriver: (id) => request(`/drivers/${id}`, { method: 'DELETE' }),
+  deleteDriver: (id, options = {}) => request(`/drivers/${id}`, { method: 'DELETE', ...options }),
 
   getTrips: () => request('/trips'),
   createTrip: (payload) => request('/trips', { method: 'POST', body: JSON.stringify(payload) }),
   updateTrip: (id, payload) => request(`/trips/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
-  deleteTrip: (id) => request(`/trips/${id}`, { method: 'DELETE' }),
+  deleteTrip: (id, options = {}) => request(`/trips/${id}`, { method: 'DELETE', ...options }),
 
   getFuelRecords: () => request('/fuel'),
   createFuelRecord: (payload) => request('/fuel', { method: 'POST', body: JSON.stringify(payload) }),
   updateFuelRecord: (id, payload) => request(`/fuel/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
-  deleteFuelRecord: (id) => request(`/fuel/${id}`, { method: 'DELETE' }),
+  deleteFuelRecord: (id, options = {}) => request(`/fuel/${id}`, { method: 'DELETE', ...options }),
 
   getMaintenanceRecords: () => request('/maintenance'),
   createMaintenanceRecord: (payload) => request('/maintenance', { method: 'POST', body: JSON.stringify(payload) }),
   updateMaintenanceRecord: (id, payload) => request(`/maintenance/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
-  deleteMaintenanceRecord: (id) => request(`/maintenance/${id}`, { method: 'DELETE' })
+  deleteMaintenanceRecord: (id, options = {}) => request(`/maintenance/${id}`, { method: 'DELETE', ...options }),
+  getRecycleBin: () => request('/recycle-bin'),
+  restoreRecycleBinItem: (id) => request(`/recycle-bin/restore/${id}`, { method: 'POST' }),
+  deleteRecycleBinItem: (id) => request(`/recycle-bin/${id}`, { method: 'DELETE' })
 };
 
 export default api;

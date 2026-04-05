@@ -10,6 +10,7 @@ const maintenanceRouter = require('./router/Maintenance');
 const fleetMapRouter = require('./router/FleetMap');
 const reportsRouter = require('./router/Reports');
 const settingRouter = require('./router/Setting');
+const recycleBinRouter = require('./router/RecycleBin');
 const { readAll: dashboardSummary } = require('./controller/dashboardController');
 const { readAll: systemReadAll, health } = require('./controller/systemController');
 const { seedDatabase } = require('./controller/seedController');
@@ -31,6 +32,7 @@ app.use('/api/maintenance', maintenanceRouter);
 app.use('/api/map', fleetMapRouter);
 app.use('/api/reports', reportsRouter);
 app.use('/api/settings', settingRouter);
+app.use('/api/recycle-bin', recycleBinRouter);
 
 app.get('/api/dashboard/summary', dashboardSummary);
 app.get('/api/system', systemReadAll);

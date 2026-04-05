@@ -2,6 +2,8 @@ const mongoose = require("mongoose");
 const Trip = require("../model/Trips");
 const Vehicle = require("../model/Vehicles");
 const Driver = require("../model/Drivers");
+const { archiveRecord } = require("../services/recycleBinService");
+const { getDeletedByValue } = require("../utils/deletionContext");
 
 const toTitleCase = (value) => {
   const text = String(value || "").trim();
@@ -294,15 +296,23 @@ const deleteTrip = async (req, res) => {
   }
 
   try {
-    const dl = await Trip.findOneAndDelete(query);
+    const trip = await Trip.findOne(query);
 
-    if (!dl) {
+    if (!trip) {
       return res.status(404).json({ message: "Trip not found" });
     }
 
+    await archiveRecord({
+      type: "Trip",
+      document: trip,
+      deletedBy: getDeletedByValue(req)
+    });
+
+    await trip.deleteOne();
+
     const [vehicle, driver] = await Promise.all([
-      findVehicleByInput(dl.vehicleId || dl.vehicle),
-      findDriverByInput(dl.driverId || dl.driver)
+      findVehicleByInput(trip.vehicleId || trip.vehicle),
+      findDriverByInput(trip.driverId || trip.driver)
     ]);
 
     if (vehicle) {
@@ -319,7 +329,7 @@ const deleteTrip = async (req, res) => {
 
     res.status(200).json({
       message: "Deleted successfully",
-      data: dl
+      data: trip
     });
   } catch (error) {
     res.status(500).json({

@@ -1,5 +1,7 @@
 const mongoose = require("mongoose");
 const Vehicle = require("../model/Vehicles");
+const { archiveRecord } = require("../services/recycleBinService");
+const { getDeletedByValue } = require("../utils/deletionContext");
 
 const normalizeVehiclePayload = (payload = {}) => {
   const body = { ...payload };
@@ -156,15 +158,23 @@ const deleteVehicle = async (req, res) => {
   }
 
   try {
-    const dl = await Vehicle.findOneAndDelete(query);
+    const vehicle = await Vehicle.findOne(query);
 
-    if (!dl) {
+    if (!vehicle) {
       return res.status(404).json({ message: "Vehicle not found" });
     }
 
+    await archiveRecord({
+      type: "Vehicle",
+      document: vehicle,
+      deletedBy: getDeletedByValue(req)
+    });
+
+    await vehicle.deleteOne();
+
     res.status(200).json({
       message: "Deleted successfully",
-      data: dl
+      data: vehicle
     });
   } catch (error) {
     res.status(500).json({

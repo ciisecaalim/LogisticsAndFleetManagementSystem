@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   LogOut,
   MapPinned,
+  Repeat,
   Route,
   Settings,
   Truck,
@@ -20,6 +21,7 @@ const navItems = [
   { label: 'Fuel', icon: Fuel, path: '/fuel' },
   { label: 'Maintenance', icon: Wrench, path: '/maintenance' },
   { label: 'Fleet Map', icon: MapPinned, path: '/fleet-map' },
+  { label: 'Recycle Pin', icon: Repeat, path: '/recycle-pin' },
   { label: 'Reports', icon: FileBarChart2, path: '/reports' },
   { label: 'Settings', icon: Settings, path: '/settings' }
 

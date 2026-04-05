@@ -1,5 +1,7 @@
 const mongoose = require("mongoose");
 const Maintenance = require("../model/Maintenance");
+const { archiveRecord } = require("../services/recycleBinService");
+const { getDeletedByValue } = require("../utils/deletionContext");
 
 const buildMaintenanceQuery = (paramId) => {
   if (paramId === undefined || paramId === null) {
@@ -116,15 +118,23 @@ const deleteMaintenance = async (req, res) => {
   }
 
   try {
-    const dl = await Maintenance.findOneAndDelete(query);
+    const record = await Maintenance.findOne(query);
 
-    if (!dl) {
+    if (!record) {
       return res.status(404).json({ message: "Maintenance record not found" });
     }
 
+    await archiveRecord({
+      type: "Maintenance",
+      document: record,
+      deletedBy: getDeletedByValue(req)
+    });
+
+    await record.deleteOne();
+
     res.status(200).json({
       message: "Deleted successfully",
-      data: dl
+      data: record
     });
   } catch (error) {
     res.status(500).json({
