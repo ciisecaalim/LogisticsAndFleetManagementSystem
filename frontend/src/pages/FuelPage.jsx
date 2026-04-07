@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Download, Fuel, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { Check, Download, Fuel, Pencil, Plus, Trash2, Upload, X } from 'lucide-react';
 import api from '../services/api';
 import { downloadCsv, parseCsv } from '../utils/csv';
 
@@ -68,6 +68,14 @@ function getFuelRecordKey(record) {
   return record._id || record.id || `${record.vehicle}-${record.date}`;
 }
 
+function slugify(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '');
+}
+
 export default function FuelPage() {
   const [fuelRecords, setFuelRecords] = useState(getCachedFuelRecords);
   const [loading, setLoading] = useState(fuelRecords.length === 0);
@@ -77,7 +85,9 @@ export default function FuelPage() {
   const [editingId, setEditingId] = useState('');
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef(null);
-  const [exportStation, setExportStation] = useState('All');
+  const [stationFilter, setStationFilter] = useState('All');
+  const [vehicleFilter, setVehicleFilter] = useState('All');
+  const [searchQuery, setSearchQuery] = useState('');
   const [availableVehicles, setAvailableVehicles] = useState(() => readCache(FUEL_VEHICLES_CACHE));
   const [chartWidth, setChartWidth] = useState(CHART_MIN_WIDTH);
   const chartWrapperRef = useRef(null);
@@ -85,6 +95,7 @@ export default function FuelPage() {
   const [sortDirection, setSortDirection] = useState('desc');
   const [page, setPage] = useState(1);
   const [selectedRecordIds, setSelectedRecordIds] = useState([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -216,12 +227,29 @@ export default function FuelPage() {
     return ['All', ...stations];
   }, [fuelRecords]);
   const filteredFuelRecords = useMemo(() => {
-    if (exportStation === 'All') {
-      return fuelRecords;
-    }
+    const searchTerm = searchQuery.trim().toLowerCase();
 
-    return fuelRecords.filter((record) => record.station === exportStation);
-  }, [exportStation, fuelRecords]);
+    return fuelRecords.filter((record) => {
+      if (stationFilter !== 'All' && record.station !== stationFilter) {
+        return false;
+      }
+
+      if (vehicleFilter !== 'All' && record.vehicle !== vehicleFilter) {
+        return false;
+      }
+
+      if (!searchTerm) {
+        return true;
+      }
+
+      const haystack = [record.vehicle, record.station, record.date, record.odometer]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      return haystack.includes(searchTerm);
+    });
+  }, [fuelRecords, stationFilter, vehicleFilter, searchQuery]);
   const sortedFuelRecords = useMemo(() => {
     const direction = sortDirection === 'asc' ? 1 : -1;
     return [...filteredFuelRecords].sort((a, b) => {
@@ -257,6 +285,10 @@ export default function FuelPage() {
       setPage(1);
     }
   }, [page, totalPages]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [stationFilter, vehicleFilter, searchQuery]);
 
   const paginatedFuelRecords = sortedFuelRecords.slice((normalizedPage - 1) * PAGE_SIZE, normalizedPage * PAGE_SIZE);
   const visibleRecordKeys = paginatedFuelRecords.map((record) => getFuelRecordKey(record));
@@ -303,6 +335,25 @@ export default function FuelPage() {
         label: vehicle.plateNumber ? `${vehicle.plateNumber} • ${vehicle.model || 'Vehicle'}` : vehicle.model
       }));
   }, [availableVehicles]);
+
+  const vehicleFilterOptions = useMemo(() => {
+    const uniqueVehicles = Array.from(
+      new Set(fuelRecords.map((record) => record.vehicle).filter(Boolean))
+    ).sort((a, b) => a.localeCompare(b));
+    return ['All', ...uniqueVehicles];
+  }, [fuelRecords]);
+
+  const exportFilenameSuffix = useMemo(() => {
+    const segments = [];
+    if (stationFilter !== 'All') {
+      segments.push(slugify(stationFilter));
+    }
+    if (vehicleFilter !== 'All') {
+      segments.push(slugify(vehicleFilter));
+    }
+
+    return segments.length ? `-${segments.join('-')}` : '';
+  }, [stationFilter, vehicleFilter]);
 
   function openAddForm() {
     setFormMode('add');
@@ -408,6 +459,64 @@ export default function FuelPage() {
     }
   }
 
+  async function handleDeleteSelected() {
+    if (selectedRecordIds.length === 0) {
+      return;
+    }
+
+    if (!window.confirm(`Delete ${selectedRecordIds.length} selected fuel record(s)? This action cannot be undone.`)) {
+      return;
+    }
+
+    const lookup = new Map(fuelRecords.map((record) => [getFuelRecordKey(record), record]));
+    const pickedRecords = selectedRecordIds.map((key) => lookup.get(key)).filter(Boolean);
+    const deletableRecords = pickedRecords.filter((record) => record._id || record.id);
+
+    if (deletableRecords.length === 0) {
+      setError('Selected records need backend ids before they can be deleted.');
+      return;
+    }
+
+    const recordIds = deletableRecords.map((record) => record._id || record.id);
+    const skippedCount = pickedRecords.length - deletableRecords.length;
+
+    setBulkDeleting(true);
+
+    try {
+      const results = await Promise.allSettled(recordIds.map((id) => api.deleteFuelRecord(id)));
+      const succeededIds = results
+        .map((result, index) => (result.status === 'fulfilled' ? recordIds[index] : null))
+        .filter(Boolean);
+
+      if (succeededIds.length === 0) {
+        setError('Bulk delete failed. Check backend server.');
+        return;
+      }
+
+      const next = fuelRecords.filter((record) => !succeededIds.includes(record._id || record.id));
+      setFuelRecords(next);
+      saveFuelRecords(next);
+
+      const deletedKeys = deletableRecords
+        .filter((record) => succeededIds.includes(record._id || record.id))
+        .map((record) => getFuelRecordKey(record));
+
+      setSelectedRecordIds((prev) => prev.filter((id) => !deletedKeys.includes(id)));
+
+      if (results.some((result) => result.status === 'rejected')) {
+        setError('Some records failed to delete. Refresh and try again.');
+      } else if (skippedCount > 0) {
+        setError('Some selections were skipped because they lack backend ids.');
+      } else {
+        setError('');
+      }
+    } catch {
+      setError('Bulk delete failed. Check backend server.');
+    } finally {
+      setBulkDeleting(false);
+    }
+  }
+
   return (
     <section className='space-y-6'>
       <header className='flex flex-wrap items-start justify-between gap-4'>
@@ -416,7 +525,7 @@ export default function FuelPage() {
           <p className='mt-1 text-base font-medium text-[#1E293B] sm:text-lg'>Track fuel consumption and costs</p>
         </div>
 
-        <div className='flex flex-wrap items-center gap-3'>
+        <div className='flex flex-wrap items-start gap-3'>
           <div className='flex flex-wrap items-center gap-2'>
             <button
               type='button'
@@ -425,7 +534,7 @@ export default function FuelPage() {
                 downloadCsv({
                   columns: fuelColumns,
                   data: filteredFuelRecords,
-                  filename: exportStation === 'All' ? 'fuel-records.csv' : `fuel-records-${exportStation}.csv`
+                  filename: `fuel-records${exportFilenameSuffix}.csv`
                 })
               }
             >
@@ -437,11 +546,19 @@ export default function FuelPage() {
               onClick={() => fileInputRef.current?.click()}
               className='inline-flex items-center gap-2 rounded-xl border border-[#64748B]/20 bg-[#f1f5f9] px-4 py-2 text-sm font-semibold text-[#1E293B]'
             >
+              <Upload size={18} strokeWidth={2.2} />
               Import CSV
             </button>
+            <input
+              type='search'
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder='Search vehicles, stations, dates...'
+              className='rounded-xl border border-[#64748B]/25 bg-white px-3 py-2 text-sm text-[#1E293B] placeholder:text-[#94a3b8]'
+            />
             <select
-              value={exportStation}
-              onChange={(event) => setExportStation(event.target.value)}
+              value={stationFilter}
+              onChange={(event) => setStationFilter(event.target.value)}
               className='rounded-xl border border-[#64748B]/25 bg-white px-3 py-2 text-sm text-[#1E293B]'
             >
               {stationOptions.map((station) => (
@@ -450,8 +567,27 @@ export default function FuelPage() {
                 </option>
               ))}
             </select>
+            <select
+              value={vehicleFilter}
+              onChange={(event) => setVehicleFilter(event.target.value)}
+              className='rounded-xl border border-[#64748B]/25 bg-white px-3 py-2 text-sm text-[#1E293B]'
+            >
+              {vehicleFilterOptions.map((vehicle) => (
+                <option key={vehicle} value={vehicle}>
+                  {vehicle === 'All' ? 'All vehicles' : vehicle}
+                </option>
+              ))}
+            </select>
           </div>
-          <div className='ml-auto flex items-center'>
+          <div className='ml-auto flex items-center gap-2'>
+            <button
+              type='button'
+              onClick={handleDeleteSelected}
+              disabled={selectedRecordIds.length === 0 || bulkDeleting}
+              className='inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 transition hover:border-red-300 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50'
+            >
+              {bulkDeleting ? 'Deleting...' : `Delete Selected (${selectedRecordIds.length})`}
+            </button>
             <button
               type='button'
               onClick={openAddForm}

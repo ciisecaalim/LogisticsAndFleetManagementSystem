@@ -1,10 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, MapPin, Pencil, Plus, Trash2, X } from 'lucide-react';
 import api from '../services/api';
 import { downloadCsv, parseCsv } from '../utils/csv';
 
 const TRIPS_CACHE_KEY = 'lfms_trips';
 const TRIP_STATUS_OPTIONS = ['Completed', 'Ongoing', 'Pending'];
+const TRIP_STATUS_PALETTE = {
+  Completed: { bg: '#ecfdf5', border: '#22c55e', text: '#047857' },
+  Ongoing: { bg: '#e0f2fe', border: '#2563eb', text: '#1d4ed8' },
+  Pending: { bg: '#fef3c7', border: '#fbbf24', text: '#92400e' }
+};
 const PAGE_SIZE = 10;
 const EMPTY_TRIP_FORM = {
   vehicle: '',
@@ -86,16 +91,8 @@ function saveCache(key, list) {
   localStorage.setItem(key, JSON.stringify(list));
 }
 
-function getStatusClass(status) {
-  if (status === 'Completed') {
-    return 'bg-[#10B981]/20 text-[#047857]';
-  }
-
-  if (status === 'Ongoing') {
-    return 'bg-[#64748B]/20 text-[#1D4ED8]';
-  }
-
-  return 'bg-[#F59E0B]/20 text-[#92400E]';
+function getStatusBadgeStyles(status) {
+  return TRIP_STATUS_PALETTE[status] || TRIP_STATUS_PALETTE.Pending;
 }
 
 function getTripKey(trip) {
@@ -248,7 +245,8 @@ export default function TripsPage() {
     return map;
   }, [availableVehicles]);
 
-  function resolveVehicleLabel(trip) {
+const resolveVehicleLabel = useCallback(
+  (trip) => {
     const directName = trip.vehicleName || trip.vehicleLabel || trip.modelName;
     if (directName) {
       return directName;
@@ -277,7 +275,9 @@ export default function TripsPage() {
     }
 
     return referenceKeys[0] || String(trip.vehicle || '—');
-  }
+  },
+  [vehicleLookup]
+);
 
   const driverOptions = useMemo(
     () =>
@@ -328,7 +328,7 @@ export default function TripsPage() {
       }
       return direction * (aval > bval ? 1 : -1);
     });
-  }, [filteredTrips, sortDirection, sortKey]);
+  }, [filteredTrips, sortDirection, sortKey, resolveVehicleLabel]);
   const totalPages = Math.max(1, Math.ceil(sortedTrips.length / PAGE_SIZE));
   const normalizedPage = Math.min(Math.max(page, 1), totalPages);
 
@@ -378,11 +378,14 @@ export default function TripsPage() {
     setSortDirection('asc');
   };
 
-  const tripStatusColors = {
-    Completed: '#10B981',
-    Ongoing: '#2563EB',
-    Pending: '#F59E0B'
-  };
+  const tripStatusColors = useMemo(
+    () => ({
+      Completed: '#10B981',
+      Ongoing: '#2563EB',
+      Pending: '#F59E0B'
+    }),
+    []
+  );
   const PIE_SIZE = 260;
   const PIE_RADIUS = 88;
   const PIE_CENTER = PIE_SIZE / 2;
@@ -438,7 +441,7 @@ export default function TripsPage() {
       count: counts[status],
       color: tripStatusColors[status]
     }));
-  }, [filteredTrips]);
+  }, [filteredTrips, tripStatusColors]);
 
   const totalTripStatusCount = tripStatusBreakdown.reduce((sum, item) => sum + item.count, 0);
   const hasTripStats = totalTripStatusCount > 0;
@@ -467,19 +470,20 @@ export default function TripsPage() {
           percent: Math.round((item.count / totalTripStatusCount) * 100)
         };
       });
-  }, [hasTripStats, totalTripStatusCount, tripStatusBreakdown]);
+  }, [hasTripStats, totalTripStatusCount, tripStatusBreakdown, PIE_CENTER, PIE_RADIUS]);
 
   const statsSection = (
     <article className='rounded-[36px] border border-[#dce2f0] bg-white px-6 py-6 shadow-[0_20px_50px_rgba(15,23,42,0.08)]'>
       <h2 className='text-xl font-semibold text-[#1E293B]'>Trip Statistics</h2>
       <div className='mt-5 rounded-[26px] border border-dashed border-[#dce2f0] bg-white/70 p-6 shadow-sm'>
+        <p className='text-xs font-semibold uppercase tracking-[0.3em] text-[#94a3b8]'>Status distribution</p>
         <div className='relative flex h-[260px] w-full items-center justify-center overflow-hidden'>
           <svg
             viewBox={`0 0 ${PIE_SIZE} ${PIE_SIZE}`}
             preserveAspectRatio='xMidYMid meet'
             className='h-full w-full max-w-[340px]'
           >
-            <circle cx={PIE_CENTER} cy={PIE_CENTER} r={PIE_RADIUS} fill='#f1f5f9' />
+            <circle cx={PIE_CENTER} cy={PIE_CENTER} r={PIE_RADIUS} fill='#64a1b8' />
 
             {pieSlices.map((slice) => (
               <path key={`slice-${slice.status}`} d={slice.path} fill={slice.color} stroke='#ffffff' strokeWidth='2' />
@@ -524,6 +528,32 @@ export default function TripsPage() {
           ))}
         </div>
       ) : null}
+      <h3 className='mt-6 text-xs font-semibold uppercase tracking-[0.3em] text-[#94a3b8]'>Status palette</h3>
+      <div className='mt-6 grid gap-3 md:grid-cols-3'>
+        {Object.entries(TRIP_STATUS_PALETTE).map(([status, palette]) => (
+          <div
+            key={`palette-${status}`}
+            className='flex flex-col gap-1 rounded-2xl border px-4 py-3 transition hover:shadow-lg'
+            style={{ borderColor: palette.border + '33' }}
+          >
+            <div className='flex items-center gap-3'>
+              <span
+                className='h-3 w-3 rounded-full'
+                style={{ backgroundColor: palette.border }}
+              />
+              <p className='text-xs font-semibold uppercase tracking-[0.3em] text-[#475569]'>{status}</p>
+            </div>
+            <p className='text-sm font-semibold' style={{ color: palette.text }}>
+              {palette.text}
+            </p>
+            <p className='text-[10px] uppercase tracking-[0.3em] text-[#94a3b8]'>Background</p>
+            <div
+              className='h-6 w-full rounded-xl'
+              style={{ backgroundColor: palette.bg }}
+            />
+          </div>
+        ))}
+      </div>
     </article>
   );
 
@@ -991,9 +1021,23 @@ export default function TripsPage() {
                 <div className='text-sm text-[#1E293B] lg:text-base'>{trip.date}</div>
                 <div className='text-sm text-[#1E293B] lg:text-base'>{formatDistanceDisplay(trip)}</div>
                 <div>
-                  <span className={`inline-flex rounded-xl px-3 py-1 text-sm font-semibold lg:text-base ${getStatusClass(trip.status)}`}>
-                    {trip.status}
-                  </span>
+                  {(() => {
+                    const palette = getStatusBadgeStyles(trip.status);
+                    return (
+                      <span
+                        className='inline-flex rounded-xl px-3 py-1 text-sm font-semibold lg:text-base'
+                        style={{
+                          backgroundColor: palette.bg,
+                          borderColor: palette.border,
+                          color: palette.text,
+                          borderStyle: 'solid',
+                          borderWidth: 1
+                        }}
+                      >
+                        {trip.status}
+                      </span>
+                    );
+                  })()}
                 </div>
                 <div className='flex items-center gap-3'>
                   <button
