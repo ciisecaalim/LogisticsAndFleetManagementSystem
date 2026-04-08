@@ -4,24 +4,25 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
+  Fuel,
   MapPinned,
   Pencil,
   Plus,
+  Route,
   Search,
   Trash2,
-  Upload,
-  Download,
-  Wrench,
-  X,
-  Package,
-  Route,
   Truck,
-  Users
+  Upload,
+  Users,
+  Download,
+  X
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { downloadCsv, parseCsv } from '../utils/csv';
+import StatsBanner from '../components/StatsBanner';
+import useEntityCounts from '../hooks/useEntityCounts';
 import StatsBanner from '../components/StatsBanner';
 import useEntityCounts from '../hooks/useEntityCounts';
 
@@ -57,6 +58,13 @@ const vehicleColumns = [
   { key: 'type', label: 'Type' },
   { key: 'year', label: 'Year', parse: (value) => Number(value) || new Date().getFullYear() },
   { key: 'status', label: 'Status' }
+];
+
+const SUMMARY_STATS = [
+  { key: 'vehicles', label: 'Total Vehicles', helper: 'Active fleet units', icon: Truck, tone: 'slate' },
+  { key: 'trips', label: 'Active Trips', helper: 'Routes in motion', icon: Route, tone: 'emerald' },
+  { key: 'drivers', label: 'Total Drivers', helper: 'On rotation', icon: Users, tone: 'amber' },
+  { key: 'fuel', label: 'Fuel Expenses', helper: 'This month', icon: Fuel, tone: 'slate' }
 ];
 
 function getCachedVehicles() {
@@ -123,38 +131,6 @@ function getNormalizedVehicles(list) {
   }));
 }
 
-const SUMMARY_STATS = [
-  { key: 'vehicles', label: 'Total Vehicles', helper: 'Active fleet units', icon: Truck, tone: 'slate' },
-  { key: 'trips', label: 'Active Trips', helper: 'Routes in motion', icon: Route, tone: 'emerald' },
-  { key: 'drivers', label: 'Total Drivers', helper: 'On rotation', icon: Users, tone: 'blue' },
-  { key: 'shipments', label: 'Total Shipments', helper: 'Loads tracked', icon: Package, tone: 'amber' }
-];
-
-function StatsCard({ title, value, icon, tone }) {
-  const toneClass =
-    tone === 'active'
-      ? 'from-emerald-500 to-emerald-600'
-      : tone === 'maintenance'
-        ? 'from-amber-500 to-amber-600'
-        : tone === 'idle'
-          ? 'from-slate-500 to-slate-600'
-          : 'from-blue-500 to-blue-600';
-
-  return (
-    <div className='group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg'>
-      <div className='flex items-center justify-between'>
-        <div>
-          <p className='text-xs font-semibold uppercase tracking-[0.2em] text-slate-500'>{title}</p>
-          <p className='mt-2 text-3xl font-bold text-slate-900'>{value}</p>
-        </div>
-        <div className={`grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br text-white ${toneClass}`}>
-          {icon}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function VehiclesPage() {
   const { counts, loading: statsLoading, error: statsError } = useEntityCounts();
   const statsItems = useMemo(
@@ -167,6 +143,21 @@ export default function VehiclesPage() {
   );
   const navigate = useNavigate();
   const [vehicles, setVehicles] = useState(() => getNormalizedVehicles(getCachedVehicles()));
+  const { counts, loading: statsLoading, error: statsError } = useEntityCounts();
+  const statsItems = useMemo(
+    () =>
+      SUMMARY_STATS.map((item) => {
+        if (item.key === 'fuel') {
+          return { ...item, value: statsLoading ? '—' : '$0.00' };
+        }
+
+        return {
+          ...item,
+          value: statsLoading ? '—' : counts[item.key]
+        };
+      }),
+    [counts, statsLoading]
+  );
   const [mapVehicles, setMapVehicles] = useState([]);
   const [loading, setLoading] = useState(vehicles.length === 0);
   const [error, setError] = useState('');
@@ -627,17 +618,7 @@ export default function VehiclesPage() {
 
       <StatsBanner items={statsItems} error={statsError} />
 
-      <section className='grid gap-4 sm:grid-cols-2 xl:grid-cols-4'>
-        <StatsCard title='Total Vehicles' value={vehicleStats.total} icon={<Car size={20} />} tone='total' />
-        <StatsCard title='Active Vehicles' value={vehicleStats.active} icon={<Check size={20} />} tone='active' />
-        <StatsCard
-          title='Vehicles In Maintenance'
-          value={vehicleStats.maintenance}
-          icon={<Wrench size={20} />}
-          tone='maintenance'
-        />
-        <StatsCard title='Idle Vehicles' value={vehicleStats.idle} icon={<MapPinned size={20} />} tone='idle' />
-      </section>
+      <StatsBanner items={statsItems} error={statsError} />
 
       <section className='grid gap-4 xl:grid-cols-2'>
         <article className='rounded-2xl border border-slate-200 bg-white p-5 shadow-sm'>

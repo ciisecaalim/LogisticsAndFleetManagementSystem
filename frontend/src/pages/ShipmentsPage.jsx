@@ -1,10 +1,18 @@
-import { Check, Pencil, Plus, Trash2, X, Package, Route, Truck, Users } from 'lucide-react';
+import { Check, Fuel, Pencil, Plus, Trash2, X, Package, Route, Truck, Users } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import api from '../services/api';
 import StatsBanner from '../components/StatsBanner';
 import useEntityCounts from '../hooks/useEntityCounts';
 
 const SHIPMENT_STATUS_OPTIONS = ['All', 'Pending', 'Assigned', 'In Transit', 'Delivered'];
+
+const SUMMARY_STATS = [
+  { key: 'vehicles', label: 'Total Vehicles', helper: 'Active fleet units', icon: Truck, tone: 'slate' },
+  { key: 'trips', label: 'Active Trips', helper: 'Routes in motion', icon: Route, tone: 'emerald' },
+  { key: 'drivers', label: 'Total Drivers', helper: 'On rotation', icon: Users, tone: 'blue' },
+  { key: 'shipments', label: 'Total Shipments', helper: 'Loads tracked', icon: Package, tone: 'amber' },
+  { key: 'fuel', label: 'Fuel Expenses', helper: 'This month', icon: Fuel, tone: 'slate' }
+];
 
 const EMPTY_SHIPMENT_FORM = {
   productName: '',
@@ -13,13 +21,6 @@ const EMPTY_SHIPMENT_FORM = {
   status: 'Pending',
   tripId: ''
 };
-
-const SUMMARY_STATS = [
-  { key: 'vehicles', label: 'Total Vehicles', helper: 'Active fleet units', icon: Truck, tone: 'slate' },
-  { key: 'trips', label: 'Active Trips', helper: 'Routes in motion', icon: Route, tone: 'emerald' },
-  { key: 'drivers', label: 'Total Drivers', helper: 'On rotation', icon: Users, tone: 'blue' },
-  { key: 'shipments', label: 'Total Shipments', helper: 'Loads tracked', icon: Package, tone: 'amber' }
-];
 
 function getShipmentKey(shipment) {
   return shipment._id || shipment.id || shipment.shipmentId;
@@ -51,10 +52,15 @@ export default function ShipmentsPage() {
   const { counts, loading: statsLoading, error: statsError } = useEntityCounts();
   const statsItems = useMemo(
     () =>
-      SUMMARY_STATS.map((item) => ({
-        ...item,
-        value: statsLoading ? '—' : counts[item.key]
-      })),
+      SUMMARY_STATS.map((item) => {
+        if (item.key === 'fuel') {
+          return { ...item, value: statsLoading ? '—' : '$0.00' };
+        }
+        return {
+          ...item,
+          value: statsLoading ? '—' : counts[item.key]
+        };
+      }),
     [counts, statsLoading]
   );
 
