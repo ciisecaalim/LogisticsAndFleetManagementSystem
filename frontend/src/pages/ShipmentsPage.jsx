@@ -1,18 +1,9 @@
-import { Check, Fuel, Pencil, Plus, Trash2, X, Package, Route, Truck, Users } from 'lucide-react';
+import { Check, Pencil, Plus, Trash2, X, Package, Route, Truck } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import api from '../services/api';
 import StatsBanner from '../components/StatsBanner';
-import useEntityCounts from '../hooks/useEntityCounts';
 
 const SHIPMENT_STATUS_OPTIONS = ['All', 'Pending', 'Assigned', 'In Transit', 'Delivered'];
-
-const SUMMARY_STATS = [
-  { key: 'vehicles', label: 'Total Vehicles', helper: 'Active fleet units', icon: Truck, tone: 'slate' },
-  { key: 'trips', label: 'Active Trips', helper: 'Routes in motion', icon: Route, tone: 'emerald' },
-  { key: 'drivers', label: 'Total Drivers', helper: 'On rotation', icon: Users, tone: 'blue' },
-  { key: 'shipments', label: 'Total Shipments', helper: 'Loads tracked', icon: Package, tone: 'amber' },
-  { key: 'fuel', label: 'Fuel Expenses', helper: 'This month', icon: Fuel, tone: 'slate' }
-];
 
 const EMPTY_SHIPMENT_FORM = {
   productName: '',
@@ -49,20 +40,72 @@ export default function ShipmentsPage() {
   const [formData, setFormData] = useState(EMPTY_SHIPMENT_FORM);
   const [statusFilter, setStatusFilter] = useState('All');
   const [saving, setSaving] = useState(false);
-  const { counts, loading: statsLoading, error: statsError } = useEntityCounts();
+  const shipmentStats = useMemo(() => {
+    const total = shipments.length;
+    const pending = shipments.filter((shipment) => shipment.status === 'Pending').length;
+    const assigned = shipments.filter((shipment) => shipment.status === 'Assigned').length;
+    const inTransit = shipments.filter((shipment) => shipment.status === 'In Transit').length;
+    const delivered = shipments.filter((shipment) => shipment.status === 'Delivered').length;
+
+    return { total, pending, assigned, inTransit, delivered };
+  }, [shipments]);
+
   const statsItems = useMemo(
-    () =>
-      SUMMARY_STATS.map((item) => {
-        if (item.key === 'fuel') {
-          return { ...item, value: statsLoading ? '—' : '$0.00' };
-        }
-        return {
-          ...item,
-          value: statsLoading ? '—' : counts[item.key]
-        };
-      }),
-    [counts, statsLoading]
+    () => [
+      {
+        key: 'totalShipments',
+        label: 'Total Shipments',
+        helper: 'All loads',
+        icon: Package,
+        tone: 'slate',
+        value: String(shipmentStats.total)
+      },
+      {
+        key: 'pendingShipments',
+        label: 'Pending Shipments',
+        helper: 'Awaiting assignment',
+        icon: Check,
+        tone: 'amber',
+        value: String(shipmentStats.pending)
+      },
+      {
+        key: 'assignedShipments',
+        label: 'Assigned Shipments',
+        helper: 'Drivers allocated',
+        icon: Truck,
+        tone: 'emerald',
+        value: String(shipmentStats.assigned)
+      },
+      {
+        key: 'inTransitShipments',
+        label: 'In Transit',
+        helper: 'On the road',
+        icon: Route,
+        tone: 'blue',
+        value: String(shipmentStats.inTransit)
+      },
+      {
+        key: 'deliveredShipments',
+        label: 'Delivered',
+        helper: 'Completed loads',
+        icon: Check,
+        tone: 'slate',
+        value: String(shipmentStats.delivered)
+      }
+    ],
+    [shipmentStats]
   );
+
+  const statusCounts = useMemo(() => {
+    const result = {
+      Pending: shipmentStats.pending,
+      Assigned: shipmentStats.assigned,
+      'In Transit': shipmentStats.inTransit,
+      Delivered: shipmentStats.delivered
+    };
+    const max = Math.max(...Object.values(result), 1);
+    return { result, max };
+  }, [shipmentStats]);
 
   useEffect(() => {
     let mounted = true;
@@ -236,7 +279,38 @@ export default function ShipmentsPage() {
         </div>
       </header>
 
-      <StatsBanner items={statsItems} error={statsError} />
+      <StatsBanner items={statsItems} />
+
+      <article className='rounded-2xl border border-[#64748B]/20 bg-white p-6 shadow-lg shadow-slate-900/5'>
+        <div className='flex items-center justify-between'>
+          <h2 className='text-lg font-semibold text-[#1E293B]'>Shipment Status Overview</h2>
+          <p className='text-sm text-[#64748B]'>Updated live</p>
+        </div>
+        <div className='mt-4 grid gap-4 md:grid-cols-4'>
+          {Object.entries(statusCounts.result).map(([status, value]) => (
+            <div key={status} className='space-y-2'>
+              <div className='text-xs font-semibold uppercase tracking-[0.3em] text-[#94a3b8]'>{status}</div>
+              <div className='h-2 rounded-full bg-[#e2e8f0]'>
+                <div
+                  className='h-full rounded-full'
+                  style={{
+                    width: `${(value / statusCounts.max) * 100}%`,
+                    background:
+                      status === 'Pending'
+                        ? '#fbbf24'
+                        : status === 'Assigned'
+                          ? '#10b981'
+                          : status === 'In Transit'
+                            ? '#3b82f6'
+                            : '#22c55e'
+                  }}
+                />
+              </div>
+              <p className='text-sm font-semibold text-[#1E293B]'>{value}</p>
+            </div>
+          ))}
+        </div>
+      </article>
 
       {error ? (
         <p className='rounded-xl border border-[#F59E0B]/35 bg-[#F59E0B]/10 px-4 py-2 text-sm text-[#92400E]'>{error}</p>

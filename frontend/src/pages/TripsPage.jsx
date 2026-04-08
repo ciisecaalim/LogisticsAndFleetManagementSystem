@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, MapPin, Pencil, Plus, Trash2, X, Package, Route, Truck, Users } from 'lucide-react';
+import { Check, MapPin, Package, Pencil, Plus, Trash2, X, Route, Truck } from 'lucide-react';
 import api from '../services/api';
 import { downloadCsv, parseCsv } from '../utils/csv';
 import StatsBanner from '../components/StatsBanner';
-import useEntityCounts from '../hooks/useEntityCounts';
 
 const TRIPS_CACHE_KEY = 'lfms_trips';
 const TRIP_STATUS_OPTIONS = ['Completed', 'Ongoing', 'Pending'];
@@ -25,13 +24,6 @@ const EMPTY_TRIP_FORM = {
 };
 
 const DISTANCE_UNITS = ['km', 'm', 'mi'];
-
-const SUMMARY_STATS = [
-  { key: 'vehicles', label: 'Total Vehicles', helper: 'Active fleet units', icon: Truck, tone: 'slate' },
-  { key: 'trips', label: 'Active Trips', helper: 'Routes in motion', icon: Route, tone: 'emerald' },
-  { key: 'drivers', label: 'Total Drivers', helper: 'On rotation', icon: Users, tone: 'blue' },
-  { key: 'shipments', label: 'Total Shipments', helper: 'Loads tracked', icon: Package, tone: 'amber' }
-];
 
 function getCachedTrips() {
   try {
@@ -145,14 +137,49 @@ export default function TripsPage() {
   const [sortDirection, setSortDirection] = useState('desc');
   const [page, setPage] = useState(1);
   const [selectedTripIds, setSelectedTripIds] = useState([]);
-  const { counts, loading: statsLoading, error: statsError } = useEntityCounts();
+  const tripStats = useMemo(() => {
+    const total = trips.length;
+    const completed = trips.filter((trip) => trip.status === 'Completed').length;
+    const ongoing = trips.filter((trip) => trip.status === 'Ongoing').length;
+    const pending = trips.filter((trip) => trip.status === 'Pending').length;
+    return { total, completed, ongoing, pending };
+  }, [trips]);
   const statsItems = useMemo(
-    () =>
-      SUMMARY_STATS.map((item) => ({
-        ...item,
-        value: statsLoading ? '—' : counts[item.key]
-      })),
-    [counts, statsLoading]
+    () => [
+      {
+        key: 'totalTrips',
+        label: 'Total Trips',
+        helper: 'All routes',
+        icon: Truck,
+        tone: 'slate',
+        value: String(tripStats.total)
+      },
+      {
+        key: 'completedTrips',
+        label: 'Completed Trips',
+        helper: 'Finished routes',
+        icon: Check,
+        tone: 'emerald',
+        value: String(tripStats.completed)
+      },
+      {
+        key: 'pendingTrips',
+        label: 'Pending Trips',
+        helper: 'Awaiting dispatch',
+        icon: Package,
+        tone: 'amber',
+        value: String(tripStats.pending)
+      },
+      {
+        key: 'ongoingTrips',
+        label: 'Ongoing Trips',
+        helper: 'Routes in motion',
+        icon: Route,
+        tone: 'blue',
+        value: String(tripStats.ongoing)
+      }
+    ],
+    [tripStats]
   );
 
   useEffect(() => {
@@ -408,36 +435,7 @@ const resolveVehicleLabel = useCallback(
   const PIE_RADIUS = 88;
   const PIE_CENTER = PIE_SIZE / 2;
 
-  const uniqueStores = useMemo(() => {
-    const names = new Set();
-    trips.forEach((trip) => {
-      if (trip.from) {
-        names.add(trip.from);
-      }
-      if (trip.to) {
-        names.add(trip.to);
-      }
-    });
-    return names.size;
-  }, [trips]);
-
-  const totalSpending = useMemo(() => {
-    return trips.reduce((sum, trip) => sum + (Number(trip.spending) || 0), 0);
-  }, [trips]);
-
   const completedCount = useMemo(() => trips.filter((trip) => trip.status === 'Completed').length, [trips]);
-  const ongoingCount = useMemo(() => trips.filter((trip) => trip.status === 'Ongoing').length, [trips]);
-  const tripSummaryBoxes = [
-    { label: 'Tracked Stores', value: uniqueStores, accent: 'emerald' },
-    {
-      label: 'Total Spending',
-      value: `$${totalSpending.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-      accent: 'amber'
-    },
-    { label: 'Completed Trips', value: completedCount, accent: 'emerald' },
-    { label: 'Ongoing Trips', value: ongoingCount, accent: 'blue' }
-  ];
-
   const tripStatusBreakdown = useMemo(() => {
     const counts = {
       Completed: 0,
@@ -798,28 +796,11 @@ const resolveVehicleLabel = useCallback(
         </div>
       </header>
 
-      <StatsBanner items={statsItems} error={statsError} />
+      <StatsBanner items={statsItems} />
 
       {error ? (
         <p className='rounded-xl border border-[#F59E0B]/35 bg-[#F59E0B]/10 px-4 py-2 text-sm text-[#92400E]'>{error}</p>
       ) : null}
-
-      <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
-        {tripSummaryBoxes.map((box) => (
-          <article
-            key={box.label}
-            className={`rounded-2xl border border-[#64748B]/20 bg-white p-4 shadow-lg shadow-slate-900/5`}
-          >
-            <p className='text-xs font-semibold uppercase tracking-[0.3em] text-[#64748B]'>{box.label}</p>
-            <p
-              className={`mt-2 font-extrabold ${box.accent === 'emerald' ? 'text-[#10B981]' : box.accent === 'amber' ? 'text-[#F59E0B]' : 'text-[#2563EB]'}`}
-              style={{ fontSize: '2em' }}
-            >
-              {box.value}
-            </p>
-          </article>
-        ))}
-      </div>
 
       {formMode ? (
         <article className='rounded-2xl border border-[#64748B]/20 bg-white p-6 shadow-lg shadow-slate-900/5'>
