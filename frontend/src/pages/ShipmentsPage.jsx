@@ -1,0 +1,391 @@
+import { Check, Pencil, Plus, Trash2, X, Package, Route, Truck, Users } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import api from '../services/api';
+import StatsBanner from '../components/StatsBanner';
+import useEntityCounts from '../hooks/useEntityCounts';
+
+const SHIPMENT_STATUS_OPTIONS = ['All', 'Pending', 'Assigned', 'In Transit', 'Delivered'];
+
+const EMPTY_SHIPMENT_FORM = {
+  productName: '',
+  quantity: '',
+  destination: '',
+  status: 'Pending',
+  tripId: ''
+};
+
+const SUMMARY_STATS = [
+  { key: 'vehicles', label: 'Total Vehicles', helper: 'Active fleet units', icon: Truck, tone: 'slate' },
+  { key: 'trips', label: 'Active Trips', helper: 'Routes in motion', icon: Route, tone: 'emerald' },
+  { key: 'drivers', label: 'Total Drivers', helper: 'On rotation', icon: Users, tone: 'blue' },
+  { key: 'shipments', label: 'Total Shipments', helper: 'Loads tracked', icon: Package, tone: 'amber' }
+];
+
+function getShipmentKey(shipment) {
+  return shipment._id || shipment.id || shipment.shipmentId;
+}
+
+function formatStatusBadge(status) {
+  switch (status) {
+    case 'Delivered':
+      return 'bg-emerald-100 text-emerald-700 border border-emerald-200';
+    case 'In Transit':
+      return 'bg-sky-100 text-sky-700 border border-sky-200';
+    case 'Assigned':
+      return 'bg-amber-100 text-amber-700 border border-amber-200';
+    default:
+      return 'bg-slate-100 text-slate-700 border border-slate-200';
+  }
+}
+
+export default function ShipmentsPage() {
+  const [shipments, setShipments] = useState([]);
+  const [availableTrips, setAvailableTrips] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [formMode, setFormMode] = useState(null);
+  const [editingId, setEditingId] = useState('');
+  const [formData, setFormData] = useState(EMPTY_SHIPMENT_FORM);
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [saving, setSaving] = useState(false);
+  const { counts, loading: statsLoading, error: statsError } = useEntityCounts();
+  const statsItems = useMemo(
+    () =>
+      SUMMARY_STATS.map((item) => ({
+        ...item,
+        value: statsLoading ? '—' : counts[item.key]
+      })),
+    [counts, statsLoading]
+  );
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadData = async () => {
+      setLoading(true);
+
+      try {
+        const [shipmentData, tripData] = await Promise.all([api.getShipments(), api.getTrips()]);
+        if (!mounted) return;
+
+        setShipments(Array.isArray(shipmentData) ? shipmentData : []);
+        setAvailableTrips(Array.isArray(tripData) ? tripData : []);
+        setError('');
+      } catch (err) {
+        if (mounted) {
+          setError('Unable to reach backend. Try refreshing.');
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadData();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const filteredShipments = useMemo(() => {
+    if (statusFilter === 'All') {
+      return shipments;
+    }
+    return shipments.filter((shipment) => shipment.status === statusFilter);
+  }, [shipments, statusFilter]);
+
+  const tripOptions = useMemo(() => {
+    return availableTrips.map((trip) => ({
+      value: trip._id || trip.id,
+      label: trip.tripId
+        ? `${trip.tripId} • ${trip.vehicle} (${trip.from} → ${trip.to})`
+        : `${trip.vehicle} • ${trip.from} → ${trip.to}`
+    }));
+  }, [availableTrips]);
+
+  const openAddForm = () => {
+    setFormMode('add');
+    setEditingId('');
+    setFormData(EMPTY_SHIPMENT_FORM);
+    setError('');
+  };
+
+  const openEditForm = (shipment) => {
+    const shipmentKey = getShipmentKey(shipment);
+    if (!shipmentKey) {
+      setError('Select a valid shipment before editing.');
+      return;
+    }
+
+    setFormMode('edit');
+    setEditingId(shipmentKey);
+    setFormData({
+      productName: shipment.productName || '',
+      quantity: shipment.quantity || '',
+      destination: shipment.destination || '',
+      status: shipment.status || 'Pending',
+      tripId: shipment.tripId || ''
+    });
+    setError('');
+  };
+
+  const closeForm = () => {
+    setFormMode(null);
+    setEditingId('');
+    setFormData(EMPTY_SHIPMENT_FORM);
+  };
+
+  const handleFormChange = (event) => {
+    const { name, value } = event.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSave = async () => {
+    if (!formData.productName.trim() || !formData.destination.trim()) {
+      setError('Product name and destination are required.');
+      return;
+    }
+
+    const parsedQuantity = Number(formData.quantity);
+    if (!formData.quantity || Number.isNaN(parsedQuantity) || parsedQuantity <= 0) {
+      setError('Quantity must be a positive number.');
+      return;
+    }
+
+    setSaving(true);
+
+    const payload = {
+      productName: formData.productName.trim(),
+      destination: formData.destination.trim(),
+      quantity: parsedQuantity,
+      status: formData.status,
+      tripId: formData.tripId || undefined
+    };
+
+    try {
+      if (formMode === 'add') {
+        const created = await api.createShipment(payload);
+        setShipments((prev) => [created, ...prev]);
+      } else if (formMode === 'edit' && editingId) {
+        const updated = await api.updateShipment(editingId, payload);
+        setShipments((prev) =>
+          prev.map((item) => (getShipmentKey(item) === editingId ? updated : item))
+        );
+      }
+      setError('');
+      closeForm();
+    } catch {
+      setError('Save failed. Check backend service.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (shipment) => {
+    const shipmentKey = getShipmentKey(shipment);
+    if (!shipmentKey) {
+      setError('Select a valid shipment before deleting.');
+      return;
+    }
+
+    try {
+      await api.deleteShipment(shipmentKey);
+      setShipments((prev) => prev.filter((item) => getShipmentKey(item) !== shipmentKey));
+      setError('');
+    } catch {
+      setError('Delete failed. Check backend service.');
+    }
+  };
+
+  return (
+    <section className='space-y-6 pb-8'>
+      <header className='flex flex-wrap items-start justify-between gap-4'>
+        <div>
+          <h1 className='page-title m-0 text-3xl font-bold tracking-tight sm:text-4xl'>Shipments</h1>
+          <p className='mt-1 text-base font-medium text-[#1E293B] sm:text-lg'>Track all loads linked to trips</p>
+        </div>
+
+        <div className='flex items-center gap-3'>
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+            className='rounded-xl border border-[#64748B]/25 bg-white px-3 py-2 text-sm text-[#1E293B]'
+          >
+            {SHIPMENT_STATUS_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+          <button
+            type='button'
+            onClick={openAddForm}
+            className='inline-flex items-center gap-2 rounded-xl bg-[#020617] px-5 py-3 text-base font-semibold text-white transition hover:bg-[#1E293B]'
+          >
+            <Plus size={18} strokeWidth={2.4} />
+            Create Shipment
+          </button>
+        </div>
+      </header>
+
+      <StatsBanner items={statsItems} error={statsError} />
+
+      {error ? (
+        <p className='rounded-xl border border-[#F59E0B]/35 bg-[#F59E0B]/10 px-4 py-2 text-sm text-[#92400E]'>{error}</p>
+      ) : null}
+
+      {formMode ? (
+        <article className='rounded-2xl border border-[#64748B]/20 bg-white p-6 shadow-lg shadow-slate-900/5'>
+          <div className='flex items-center justify-between'>
+            <h2 className='text-lg font-semibold text-[#1E293B]'>{formMode === 'add' ? 'Add Shipment' : 'Update Shipment'}</h2>
+            <button type='button' onClick={closeForm} className='text-[#1E293B]'>
+              <X size={18} />
+            </button>
+          </div>
+          <div className='mt-4 grid gap-4 md:grid-cols-3'>
+            <label className='grid gap-1 text-sm text-[#1E293B]'>
+              Product Name
+              <input
+                name='productName'
+                value={formData.productName}
+                onChange={handleFormChange}
+                className='rounded-lg border border-[#64748B]/25 px-3 py-2'
+              />
+            </label>
+            <label className='grid gap-1 text-sm text-[#1E293B]'>
+              Quantity
+              <input
+                name='quantity'
+                type='number'
+                min='1'
+                value={formData.quantity}
+                onChange={handleFormChange}
+                className='rounded-lg border border-[#64748B]/25 px-3 py-2'
+              />
+            </label>
+            <label className='grid gap-1 text-sm text-[#1E293B]'>
+              Destination
+              <input
+                name='destination'
+                value={formData.destination}
+                onChange={handleFormChange}
+                className='rounded-lg border border-[#64748B]/25 px-3 py-2'
+              />
+            </label>
+            <label className='grid gap-1 text-sm text-[#1E293B]'>
+              Status
+              <select
+                name='status'
+                value={formData.status}
+                onChange={handleFormChange}
+                className='rounded-lg border border-[#64748B]/25 px-3 py-2'
+              >
+                {SHIPMENT_STATUS_OPTIONS.filter((option) => option !== 'All').map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className='grid gap-1 text-sm text-[#1E293B] md:col-span-2'>
+              Assign to Trip (optional)
+              <select
+                name='tripId'
+                value={formData.tripId}
+                onChange={handleFormChange}
+                className='rounded-lg border border-[#64748B]/25 px-3 py-2'
+              >
+                <option value=''>Select a trip</option>
+                {tripOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className='mt-4 flex items-center gap-3'>
+            <button
+              type='button'
+              onClick={handleSave}
+              disabled={saving}
+              className='rounded-xl bg-[#020617] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1E293B] disabled:opacity-60'
+            >
+              {saving ? 'Saving...' : formMode === 'add' ? 'Create Shipment' : 'Update Shipment'}
+            </button>
+            <button
+              type='button'
+              onClick={closeForm}
+              className='rounded-xl border border-[#64748B]/25 bg-white px-5 py-2.5 text-sm font-semibold text-[#1E293B]'
+            >
+              Cancel
+            </button>
+          </div>
+        </article>
+      ) : null}
+
+      <article className='rounded-2xl border border-[#64748B]/20 bg-white p-6 shadow-lg shadow-slate-900/5'>
+        <h2 className='m-0 text-xl font-semibold text-[#1E293B]'>All Shipments</h2>
+
+        <div className='mt-6 overflow-x-auto'>
+          <div className='min-w-[720px]'>
+            {loading && shipments.length === 0 ? (
+              <p className='px-3 py-5 text-sm text-[#64748B]'>Loading shipments...</p>
+            ) : null}
+            {!loading && shipments.length === 0 ? (
+              <p className='px-3 py-5 text-sm text-[#64748B]'>No shipments available yet.</p>
+            ) : null}
+
+            <div className='grid grid-cols-[1fr_1fr_0.6fr_1.2fr_1fr_0.9fr_0.8fr] border-b border-[#64748B]/20 px-3 py-3 text-left text-sm font-semibold text-[#1E293B]'>
+              <div>Shipment</div>
+              <div>Product</div>
+              <div>Qty</div>
+              <div>Destination</div>
+              <div>Status</div>
+              <div>Trip</div>
+              <div>Actions</div>
+            </div>
+
+            {filteredShipments.map((shipment) => {
+              const key = getShipmentKey(shipment);
+              return (
+                <div key={key} className='grid grid-cols-[1fr_1fr_0.6fr_1.2fr_1fr_0.9fr_0.8fr] border-b border-[#64748B]/20 px-3 py-4 text-sm text-[#1E293B]'>
+                  <div className='font-semibold'>{shipment.shipmentId || '—'}</div>
+                  <div>{shipment.productName}</div>
+                  <div>{shipment.quantity || '—'}</div>
+                  <div>{shipment.destination}</div>
+                  <div>
+                    <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${formatStatusBadge(shipment.status)}`}>
+                      {shipment.status}
+                    </span>
+                  </div>
+                  <div className='text-sm text-[#475569]'>
+                    {shipment.tripLabel || (shipment.tripId ? `Trip ${shipment.tripId}` : 'Unassigned')}
+                  </div>
+                  <div className='flex items-center gap-3'>
+                    <button
+                      type='button'
+                      onClick={() => openEditForm(shipment)}
+                      className='text-[#1E293B] transition hover:text-[#64748B]'
+                    >
+                      <Pencil size={20} />
+                    </button>
+                    <button
+                      type='button'
+                      onClick={() => handleDelete(shipment)}
+                      className='text-red-500 transition hover:text-red-600'
+                    >
+                      <Trash2 size={20} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </article>
+    </section>
+  );
+}

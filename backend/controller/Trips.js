@@ -4,6 +4,7 @@ const Vehicle = require("../model/Vehicles");
 const Driver = require("../model/Drivers");
 const { archiveRecord } = require("../services/recycleBinService");
 const { getDeletedByValue } = require("../utils/deletionContext");
+const Shipment = require("../model/Shipment");
 
 const toTitleCase = (value) => {
   const text = String(value || "").trim();
@@ -209,9 +210,14 @@ const readSingle = async (req, res) => {
       return res.status(404).json({ message: "Trip not found" });
     }
 
+    const tripRecord = reads.toObject ? reads.toObject() : { ...reads };
+    const relatedShipments = await Shipment.find({ tripId: reads._id }).sort({ createdAt: -1 });
+
+    tripRecord.shipments = relatedShipments;
+
     res.status(200).json({
       message: "Read trip successfully!",
-      data: reads
+      data: tripRecord
     });
   } catch (error) {
     res.status(500).json({
@@ -309,6 +315,10 @@ const deleteTrip = async (req, res) => {
     });
 
     await trip.deleteOne();
+    await Shipment.updateMany(
+      { tripId: trip._id },
+      { $set: { tripId: null, tripLabel: "", vehicle: "", driver: "" } }
+    );
 
     const [vehicle, driver] = await Promise.all([
       findVehicleByInput(trip.vehicleId || trip.vehicle),

@@ -49,6 +49,10 @@ export const api = {
   createTrip: (payload) => request('/trips', { method: 'POST', body: JSON.stringify(payload) }),
   updateTrip: (id, payload) => request(`/trips/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteTrip: (id, options = {}) => request(`/trips/${id}`, { method: 'DELETE', ...options }),
+  getShipments: () => request('/shipments'),
+  createShipment: (payload) => request('/shipments', { method: 'POST', body: JSON.stringify(payload) }),
+  updateShipment: (id, payload) => request(`/shipments/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteShipment: (id, options = {}) => request(`/shipments/${id}`, { method: 'DELETE', ...options }),
 
   getFuelRecords: () => request('/fuel'),
   createFuelRecord: (payload) => request('/fuel', { method: 'POST', body: JSON.stringify(payload) }),

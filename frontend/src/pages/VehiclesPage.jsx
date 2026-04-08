@@ -12,12 +12,18 @@ import {
   Upload,
   Download,
   Wrench,
-  X
+  X,
+  Package,
+  Route,
+  Truck,
+  Users
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { downloadCsv, parseCsv } from '../utils/csv';
+import StatsBanner from '../components/StatsBanner';
+import useEntityCounts from '../hooks/useEntityCounts';
 
 const VEHICLES_CACHE_KEY = 'lfms_vehicles';
 const PAGE_SIZE = 8;
@@ -117,6 +123,13 @@ function getNormalizedVehicles(list) {
   }));
 }
 
+const SUMMARY_STATS = [
+  { key: 'vehicles', label: 'Total Vehicles', helper: 'Active fleet units', icon: Truck, tone: 'slate' },
+  { key: 'trips', label: 'Active Trips', helper: 'Routes in motion', icon: Route, tone: 'emerald' },
+  { key: 'drivers', label: 'Total Drivers', helper: 'On rotation', icon: Users, tone: 'blue' },
+  { key: 'shipments', label: 'Total Shipments', helper: 'Loads tracked', icon: Package, tone: 'amber' }
+];
+
 function StatsCard({ title, value, icon, tone }) {
   const toneClass =
     tone === 'active'
@@ -143,6 +156,15 @@ function StatsCard({ title, value, icon, tone }) {
 }
 
 export default function VehiclesPage() {
+  const { counts, loading: statsLoading, error: statsError } = useEntityCounts();
+  const statsItems = useMemo(
+    () =>
+      SUMMARY_STATS.map((item) => ({
+        ...item,
+        value: statsLoading ? '—' : counts[item.key]
+      })),
+    [counts, statsLoading]
+  );
   const navigate = useNavigate();
   const [vehicles, setVehicles] = useState(() => getNormalizedVehicles(getCachedVehicles()));
   const [mapVehicles, setMapVehicles] = useState([]);
@@ -602,6 +624,8 @@ export default function VehiclesPage() {
           }}
         />
       </header>
+
+      <StatsBanner items={statsItems} error={statsError} />
 
       <section className='grid gap-4 sm:grid-cols-2 xl:grid-cols-4'>
         <StatsCard title='Total Vehicles' value={vehicleStats.total} icon={<Car size={20} />} tone='total' />

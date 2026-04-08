@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Download, Mail, Pencil, Phone, Plus, Trash2, X } from 'lucide-react';
+import { Check, Download, Mail, Pencil, Phone, Plus, Trash2, Truck, Route, Package, Users, X } from 'lucide-react';
 import api from '../services/api';
 import { downloadCsv, parseCsv } from '../utils/csv';
+import StatsBanner from '../components/StatsBanner';
+import useEntityCounts from '../hooks/useEntityCounts';
 
 const DRIVERS_CACHE_KEY = 'lfms_drivers';
 const DRIVER_STATUS_OPTIONS = ['All', 'Available', 'Assigned', 'Off'];
@@ -55,7 +57,23 @@ function getDriverKey(driver) {
   return driver._id || driver.id || driver.licenseNumber;
 }
 
+const SUMMARY_STATS = [
+  { key: 'vehicles', label: 'Total Vehicles', helper: 'Active fleet units', icon: Truck, tone: 'slate' },
+  { key: 'trips', label: 'Active Trips', helper: 'Routes in motion', icon: Route, tone: 'emerald' },
+  { key: 'drivers', label: 'Total Drivers', helper: 'On rotation', icon: Users, tone: 'blue' },
+  { key: 'shipments', label: 'Total Shipments', helper: 'Loads tracked', icon: Package, tone: 'amber' }
+];
+
 export default function DriversPage() {
+  const { counts, loading: statsLoading, error: statsError } = useEntityCounts();
+  const statsItems = useMemo(
+    () =>
+      SUMMARY_STATS.map((item) => ({
+        ...item,
+        value: statsLoading ? '—' : counts[item.key]
+      })),
+    [counts, statsLoading]
+  );
   const [drivers, setDrivers] = useState(getCachedDrivers);
   const [loading, setLoading] = useState(drivers.length === 0);
   const [error, setError] = useState('');
@@ -391,6 +409,9 @@ export default function DriversPage() {
           }}
         />
       </header>
+
+      <StatsBanner items={statsItems} error={statsError} />
+
 
       {formMode ? (
         <article className='rounded-2xl border border-[#64748B]/20 bg-white p-5 shadow-lg shadow-slate-900/5'>

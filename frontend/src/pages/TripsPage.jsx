@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, MapPin, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { Check, MapPin, Pencil, Plus, Trash2, X, Package, Route, Truck, Users } from 'lucide-react';
 import api from '../services/api';
 import { downloadCsv, parseCsv } from '../utils/csv';
+import StatsBanner from '../components/StatsBanner';
+import useEntityCounts from '../hooks/useEntityCounts';
 
 const TRIPS_CACHE_KEY = 'lfms_trips';
 const TRIP_STATUS_OPTIONS = ['Completed', 'Ongoing', 'Pending'];
@@ -23,6 +25,13 @@ const EMPTY_TRIP_FORM = {
 };
 
 const DISTANCE_UNITS = ['km', 'm', 'mi'];
+
+const SUMMARY_STATS = [
+  { key: 'vehicles', label: 'Total Vehicles', helper: 'Active fleet units', icon: Truck, tone: 'slate' },
+  { key: 'trips', label: 'Active Trips', helper: 'Routes in motion', icon: Route, tone: 'emerald' },
+  { key: 'drivers', label: 'Total Drivers', helper: 'On rotation', icon: Users, tone: 'blue' },
+  { key: 'shipments', label: 'Total Shipments', helper: 'Loads tracked', icon: Package, tone: 'amber' }
+];
 
 function getCachedTrips() {
   try {
@@ -136,6 +145,15 @@ export default function TripsPage() {
   const [sortDirection, setSortDirection] = useState('desc');
   const [page, setPage] = useState(1);
   const [selectedTripIds, setSelectedTripIds] = useState([]);
+  const { counts, loading: statsLoading, error: statsError } = useEntityCounts();
+  const statsItems = useMemo(
+    () =>
+      SUMMARY_STATS.map((item) => ({
+        ...item,
+        value: statsLoading ? '—' : counts[item.key]
+      })),
+    [counts, statsLoading]
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -779,6 +797,8 @@ const resolveVehicleLabel = useCallback(
           </div>
         </div>
       </header>
+
+      <StatsBanner items={statsItems} error={statsError} />
 
       {error ? (
         <p className='rounded-xl border border-[#F59E0B]/35 bg-[#F59E0B]/10 px-4 py-2 text-sm text-[#92400E]'>{error}</p>

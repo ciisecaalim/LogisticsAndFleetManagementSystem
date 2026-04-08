@@ -9,6 +9,7 @@ import ReportsPage from './pages/ReportsPage';
 import SettingsPage from './pages/SettingsPage';
 import TripsPage from './pages/TripsPage';
 import VehiclesPage from './pages/VehiclesPage';
+import ShipmentsPage from './pages/ShipmentsPage';
 import DashboardLayout from './layouts/DashboardLayout';
 import RecyclePinPage from './pages/RecyclePinPage';
 
@@ -24,6 +25,7 @@ function App() {
         <Route path='/vehicles' element={<VehiclesPage />} />
         <Route path='/drivers' element={<DriversPage />} />
         <Route path='/trips' element={<TripsPage />} />
+        <Route path='/shipments' element={<ShipmentsPage />} />
         <Route path='/fuel' element={<FuelPage />} />
         <Route path='/maintenance' element={<MaintenancePage />} />
         <Route path='/fleet-map' element={<FleetMapPage />} />
