@@ -4,16 +4,14 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
-  Fuel,
   MapPinned,
   Pencil,
   Plus,
-  Route,
   Search,
   Trash2,
   Truck,
   Upload,
-  Users,
+  Wrench,
   Download,
   X
 } from 'lucide-react';
@@ -22,9 +20,6 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { downloadCsv, parseCsv } from '../utils/csv';
 import StatsBanner from '../components/StatsBanner';
-import useEntityCounts from '../hooks/useEntityCounts';
-import StatsBanner from '../components/StatsBanner';
-import useEntityCounts from '../hooks/useEntityCounts';
 
 const VEHICLES_CACHE_KEY = 'lfms_vehicles';
 const PAGE_SIZE = 8;
@@ -58,13 +53,6 @@ const vehicleColumns = [
   { key: 'type', label: 'Type' },
   { key: 'year', label: 'Year', parse: (value) => Number(value) || new Date().getFullYear() },
   { key: 'status', label: 'Status' }
-];
-
-const SUMMARY_STATS = [
-  { key: 'vehicles', label: 'Total Vehicles', helper: 'Active fleet units', icon: Truck, tone: 'slate' },
-  { key: 'trips', label: 'Active Trips', helper: 'Routes in motion', icon: Route, tone: 'emerald' },
-  { key: 'drivers', label: 'Total Drivers', helper: 'On rotation', icon: Users, tone: 'amber' },
-  { key: 'fuel', label: 'Fuel Expenses', helper: 'This month', icon: Fuel, tone: 'slate' }
 ];
 
 function getCachedVehicles() {
@@ -132,32 +120,8 @@ function getNormalizedVehicles(list) {
 }
 
 export default function VehiclesPage() {
-  const { counts, loading: statsLoading, error: statsError } = useEntityCounts();
-  const statsItems = useMemo(
-    () =>
-      SUMMARY_STATS.map((item) => ({
-        ...item,
-        value: statsLoading ? '—' : counts[item.key]
-      })),
-    [counts, statsLoading]
-  );
   const navigate = useNavigate();
   const [vehicles, setVehicles] = useState(() => getNormalizedVehicles(getCachedVehicles()));
-  const { counts, loading: statsLoading, error: statsError } = useEntityCounts();
-  const statsItems = useMemo(
-    () =>
-      SUMMARY_STATS.map((item) => {
-        if (item.key === 'fuel') {
-          return { ...item, value: statsLoading ? '—' : '$0.00' };
-        }
-
-        return {
-          ...item,
-          value: statsLoading ? '—' : counts[item.key]
-        };
-      }),
-    [counts, statsLoading]
-  );
   const [mapVehicles, setMapVehicles] = useState([]);
   const [loading, setLoading] = useState(vehicles.length === 0);
   const [error, setError] = useState('');
@@ -245,7 +209,7 @@ export default function VehiclesPage() {
     };
   }, []);
 
-  const vehicleStats = useMemo(() => {
+const vehicleStats = useMemo(() => {
     const total = vehicles.length;
     const active = vehicles.filter((v) => v.status === 'Active').length;
     const maintenance = vehicles.filter((v) => v.status === 'In Maintenance').length;
@@ -253,6 +217,44 @@ export default function VehiclesPage() {
 
     return { total, active, maintenance, idle };
   }, [vehicles]);
+
+  const statsItems = useMemo(
+    () => [
+      {
+        key: 'totalVehicles',
+        label: 'Total Vehicles',
+        helper: 'Fleet units',
+        icon: Truck,
+        tone: 'slate',
+        value: String(vehicleStats.total)
+      },
+      {
+        key: 'activeVehicles',
+        label: 'Active Vehicles',
+        helper: 'Currently on duty',
+        icon: Check,
+        tone: 'emerald',
+        value: String(vehicleStats.active)
+      },
+      {
+        key: 'maintenanceVehicles',
+        label: 'Vehicles In Maintenance',
+        helper: 'Repairs in progress',
+        icon: Wrench,
+        tone: 'amber',
+        value: String(vehicleStats.maintenance)
+      },
+      {
+        key: 'idleVehicles',
+        label: 'Idle Vehicles',
+        helper: 'Available/reserved',
+        icon: MapPinned,
+        tone: 'blue',
+        value: String(vehicleStats.idle)
+      }
+    ],
+    [vehicleStats]
+  );
 
   const mapVehicleLookup = useMemo(() => {
     return mapVehicles.reduce((acc, item) => {
@@ -616,9 +618,7 @@ export default function VehiclesPage() {
         />
       </header>
 
-      <StatsBanner items={statsItems} error={statsError} />
-
-      <StatsBanner items={statsItems} error={statsError} />
+      <StatsBanner items={statsItems} />
 
       <section className='grid gap-4 xl:grid-cols-2'>
         <article className='rounded-2xl border border-slate-200 bg-white p-5 shadow-sm'>

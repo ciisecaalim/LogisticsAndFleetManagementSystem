@@ -17,8 +17,10 @@ export default function StatsBanner({ items, error }) {
             style={{ border: '1px solid #e2e8f0', borderTop: `3px solid ${tone.border}` }}
           >
             <div>
-              <p className='text-[11px] font-semibold uppercase tracking-[0.3em] text-[#94a3b8]'>{item.label}</p>
-              <p className='mt-3 text-3xl font-bold text-[#0f172a]'>{item.value ?? '0'}</p>
+              <p className='text-[11px] font-semibold uppercase tracking-[0.12em] text-[#94a3b8]'>{item.label}</p>
+              <p className='mt-3 font-bold text-[#0f172a]' style={{ fontSize: '2em' }}>
+                {item.value ?? '0'}
+              </p>
               <p className='mt-1 text-sm font-medium text-[#475569]'>{item.helper}</p>
             </div>
             <div
