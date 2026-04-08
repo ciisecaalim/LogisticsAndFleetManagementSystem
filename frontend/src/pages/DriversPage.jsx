@@ -3,7 +3,6 @@ import { Check, Download, Mail, Pencil, Phone, Plus, Trash2, Truck, Route, Packa
 import api from '../services/api';
 import { downloadCsv, parseCsv } from '../utils/csv';
 import StatsBanner from '../components/StatsBanner';
-import useEntityCounts from '../hooks/useEntityCounts';
 
 const DRIVERS_CACHE_KEY = 'lfms_drivers';
 const DRIVER_STATUS_OPTIONS = ['All', 'Available', 'Assigned', 'Off'];
@@ -57,23 +56,7 @@ function getDriverKey(driver) {
   return driver._id || driver.id || driver.licenseNumber;
 }
 
-const SUMMARY_STATS = [
-  { key: 'vehicles', label: 'Total Vehicles', helper: 'Active fleet units', icon: Truck, tone: 'slate' },
-  { key: 'trips', label: 'Active Trips', helper: 'Routes in motion', icon: Route, tone: 'emerald' },
-  { key: 'drivers', label: 'Total Drivers', helper: 'On rotation', icon: Users, tone: 'blue' },
-  { key: 'shipments', label: 'Total Shipments', helper: 'Loads tracked', icon: Package, tone: 'amber' }
-];
-
 export default function DriversPage() {
-  const { counts, loading: statsLoading, error: statsError } = useEntityCounts();
-  const statsItems = useMemo(
-    () =>
-      SUMMARY_STATS.map((item) => ({
-        ...item,
-        value: statsLoading ? '—' : counts[item.key]
-      })),
-    [counts, statsLoading]
-  );
   const [drivers, setDrivers] = useState(getCachedDrivers);
   const [loading, setLoading] = useState(drivers.length === 0);
   const [error, setError] = useState('');
@@ -87,6 +70,52 @@ export default function DriversPage() {
   const [sortDirection, setSortDirection] = useState('asc');
   const [page, setPage] = useState(1);
   const [selectedDriverIds, setSelectedDriverIds] = useState([]);
+  const driverStats = useMemo(() => {
+    const total = drivers.length;
+    const assigned = drivers.filter((driver) => driver.status === 'Assigned').length;
+    const available = drivers.filter((driver) => driver.status === 'Available').length;
+    const off = drivers.filter((driver) => driver.status === 'Off').length;
+
+    return { total, assigned, available, off };
+  }, [drivers]);
+
+  const statsItems = useMemo(
+    () => [
+      {
+        key: 'totalDrivers',
+        label: 'Total Drivers',
+        helper: 'Active roster',
+        icon: Users,
+        tone: 'slate',
+        value: String(driverStats.total)
+      },
+      {
+        key: 'assignedDrivers',
+        label: 'Assigned Drivers',
+        helper: 'On trips',
+        icon: Route,
+        tone: 'emerald',
+        value: String(driverStats.assigned)
+      },
+      {
+        key: 'availableDrivers',
+        label: 'Available Drivers',
+        helper: 'Ready to deploy',
+        icon: Check,
+        tone: 'blue',
+        value: String(driverStats.available)
+      },
+      {
+        key: 'offDrivers',
+        label: 'Off Duty',
+        helper: 'Resting or offline',
+        icon: Package,
+        tone: 'amber',
+        value: String(driverStats.off)
+      }
+    ],
+    [driverStats]
+  );
 
   function openAddForm() {
     setFormMode('add');
@@ -410,7 +439,7 @@ export default function DriversPage() {
         />
       </header>
 
-      <StatsBanner items={statsItems} error={statsError} />
+      <StatsBanner items={statsItems} />
 
 
       {formMode ? (
