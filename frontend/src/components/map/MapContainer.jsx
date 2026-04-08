@@ -62,7 +62,14 @@ export default function MapContainer({
 
   return (
     <div className='h-[440px] min-h-[440px] w-full overflow-hidden rounded-2xl border border-[#64748B]/15 bg-[#0f172a] p-2 shadow-lg shadow-slate-900/10 lg:h-[560px] lg:min-h-[560px]'>
-      <LeafletMapContainer center={center} zoom={12} scrollWheelZoom className='h-full w-full rounded-xl' zoomControl={false}>
+      <LeafletMapContainer
+        center={center}
+        zoom={12}
+        scrollWheelZoom
+        className='h-full w-full rounded-xl'
+        zoomControl={false}
+        attributionControl={false}
+      >
         <MapFocus center={center} zoomKey={zoomKey} />
         <TileLayer
           attribution='&copy; OpenStreetMap contributors'
