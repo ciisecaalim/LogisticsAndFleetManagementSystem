@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
+  Archive,
   Bell,
   Globe,
   Map,
@@ -8,6 +9,7 @@ import {
   Truck,
   UserRound,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getCountryDefaults, useAppSettings } from '../contexts/AppSettingsContext';
 
@@ -17,6 +19,7 @@ const sections = [
   { id: 'driver', label: 'Driver', description: 'Roles & permissions', icon: UserRound },
   { id: 'gps', label: 'GPS & Tracking', description: 'Location & routing controls', icon: Map },
   { id: 'notifications', label: 'Notifications', description: 'Alert rules & channels', icon: Bell },
+  { id: 'recycle', label: 'Recycle Bin', description: 'Soft-deleted data & restores', icon: Archive },
   { id: 'security', label: 'Security', description: 'Access & session policies', icon: Shield },
   { id: 'ui', label: 'UI Preferences', description: 'Theme & layout', icon: Palette }
 ];
@@ -796,6 +799,8 @@ export default function SettingsPage() {
             </div>
           </div>
         );
+      case 'recycle':
+        return recycleContent;
       case 'security':
         return (
           <div className='space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5'>
@@ -948,6 +953,34 @@ export default function SettingsPage() {
         return null;
     }
   };
+
+  const recycleContent = (
+    <div className='space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5'>
+      <div>
+        <p className='text-xs font-semibold uppercase tracking-[0.4em] text-slate-400'>Recycle Bin</p>
+        <h2 className='text-2xl font-bold text-slate-900'>Recover deleted records</h2>
+        <p className='mt-2 text-sm text-slate-500'>
+          Soft-deleted trips, drivers, vehicles, and documents stay in the recycle bin for 30 days. Restore or purge them
+          from the recycle pin view and keep telemetry data consistent.
+        </p>
+      </div>
+      <div className='rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-700'>
+        <p className='font-semibold'>Last synced</p>
+        <p>Every action replicates immediately across the CRM and driver apps.</p>
+      </div>
+      <div className='flex items-center justify-between gap-4'>
+        <Link
+          to='/recycle-pin'
+          className={`${primaryAction} px-6`}
+        >
+          Open recycle bin
+        </Link>
+        <button type='button' className={secondaryAction} onClick={() => setActiveSection('security')}>
+          Back to security
+        </button>
+      </div>
+    </div>
+  );
 
   const liveTimestamp = new Date().toLocaleTimeString('en-US', {
     hour: '2-digit',

@@ -1,34 +1,42 @@
 import { Link, useLocation } from 'react-router-dom';
 import {
+  Archive,
   FileBarChart2,
   Fuel,
   LayoutDashboard,
   LogOut,
   MapPinned,
   Package,
-  Repeat,
   Route,
   Settings,
   Truck,
   UserRound,
+  Warehouse,
   Wrench
 } from 'lucide-react';
-
 const navItems = [
+  // --- CORE OPERATIONS ---
   { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
+  { label: 'Fleet Map', icon: MapPinned, path: '/fleet-map' },
+  { label: 'Shipments', icon: Package, path: '/shipments' },
+  { label: 'Trips', icon: Route, path: '/trips' },
+
+  // --- LOGISTICS & INVENTORY ---
+  { label: 'Inventory', icon: Archive, path: '/inventory' },
+  { label: 'Warehousing', icon: Warehouse, path: '/warehousing' },
+  { label: 'Order Fulfillment', icon: Package, path: '/order-fulfillment' },
+
+  // --- ASSET MANAGEMENT ---
   { label: 'Vehicles', icon: Truck, path: '/vehicles' },
   { label: 'Drivers', icon: UserRound, path: '/drivers' },
-  { label: 'Trips', icon: Route, path: '/trips' },
-  { label: 'Shipments', icon: Package, path: '/shipments' },
   { label: 'Fuel', icon: Fuel, path: '/fuel' },
   { label: 'Maintenance', icon: Wrench, path: '/maintenance' },
-  { label: 'Fleet Map', icon: MapPinned, path: '/fleet-map' },
-  { label: 'Recycle Pin', icon: Repeat, path: '/recycle-pin' },
+
+  // --- SYSTEM & ANALYTICS ---
   { label: 'Reports', icon: FileBarChart2, path: '/reports' },
   { label: 'Settings', icon: Settings, path: '/settings' }
-
+  
 ];
-
 export default function Sidebar() {
   const { pathname } = useLocation();
 
