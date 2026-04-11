@@ -13,6 +13,7 @@ const settingRouter = require('./router/Setting');
 const recycleBinRouter = require('./router/RecycleBin');
 const shipmentRouter = require('./router/Shipments');
 const inventoryRouter = require('./router/Inventory');
+const warehousingRouter = require('./router/Warehousing');
 const { readAll: dashboardSummary } = require('./controller/dashboardController');
 const { readAll: systemReadAll, health } = require('./controller/systemController');
 const { seedDatabase } = require('./controller/seedController');
@@ -37,6 +38,7 @@ app.use('/api/settings', settingRouter);
 app.use('/api/recycle-bin', recycleBinRouter);
 app.use('/api/shipments', shipmentRouter);
 app.use('/api/inventory', inventoryRouter);
+app.use('/api/warehousing', warehousingRouter);
 
 app.get('/api/dashboard/summary', dashboardSummary);
 app.get('/api/system', systemReadAll);

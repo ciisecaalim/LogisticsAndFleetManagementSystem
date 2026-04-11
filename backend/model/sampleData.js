@@ -1,4 +1,33 @@
 module.exports = {
+  warehousing: [
+    {
+      zoneName: 'Zone A - Ambient',
+      managerName: 'Amina Yusuf',
+      progress: 72,
+      zoneType: 'Receiving',
+      activityType: 'Receiving',
+      timestamp: '2026-04-11 08:30',
+      status: 'Completed'
+    },
+    {
+      zoneName: 'Zone B - Cold Storage',
+      managerName: 'Hassan Ali',
+      progress: 84,
+      zoneType: 'Cold Chain',
+      activityType: 'Dispatching',
+      timestamp: '2026-04-11 10:15',
+      status: 'In Progress'
+    },
+    {
+      zoneName: 'Loading Dock',
+      managerName: 'Fatima Noor',
+      progress: 58,
+      zoneType: 'Dispatch',
+      activityType: 'Internal Transfer',
+      timestamp: '2026-04-11 12:00',
+      status: 'Scheduled'
+    }
+  ],
   inventory: [
     { name: 'Brake Pads', sku: 'BP-4402', category: 'Spare Parts', quantity: 126, image: 'https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&w=120&q=80' },
     { name: 'Engine Oil 5W-30', sku: 'EO-530-20L', category: 'Consumables', quantity: 42, image: 'https://images.unsplash.com/photo-1625047509248-ec889cbff17f?auto=format&fit=crop&w=120&q=80' },

@@ -1,5 +1,6 @@
 const Vehicle = require('../model/Vehicles');
 const Inventory = require('../model/Inventory');
+const Warehousing = require('../model/Warehousing');
 const Driver = require('../model/Drivers');
 const Trip = require('../model/Trips');
 const Fuel = require('../model/fuel');
@@ -11,6 +12,7 @@ const sampleData = require('../model/sampleData');
 // ✅ SEED DATABASE IF EMPTY
 const seedDatabase = async () => {
   const collections = [
+    { model: Warehousing, data: sampleData.warehousing },
     { model: Inventory, data: sampleData.inventory },
     { model: Vehicle, data: sampleData.vehicles },
     { model: Driver, data: sampleData.drivers },

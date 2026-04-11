@@ -8,6 +8,8 @@ import MaintenancePage from './pages/MaintenancePage';
 import FleetMapPage from './pages/FleetMapPage';
 import InventoryPage from './pages/InventoryPage';
 import CategoryPage from './pages/CategoryPage';
+import WarehousingPage from './pages/WarehousingPage';
+import OrderFulfillmentPage from './pages/OrderFulfillmentPage';
 import ReportsPage from './pages/ReportsPage';
 import SettingsPage from './pages/SettingsPage';
 import TripsPage from './pages/TripsPage';
@@ -116,7 +118,7 @@ function PageShell() {
     >
       <Sidebar />
       <main className='flex-1 bg-white px-4 py-6 pb-10 sm:px-6 sm:pb-12 lg:px-8 lg:py-7 lg:pb-14'>
-        <div className='mx-auto w-full max-w-[1320px]'>
+        <div className='mx-auto w-full max-w-330'>
           <TopBar />
           <Outlet />
         </div>
@@ -150,6 +152,8 @@ function App() {
         <Route path='/shipments' element={<ShipmentsPage />} />
         <Route path='/inventory' element={<InventoryPage />} />
         <Route path='/category' element={<CategoryPage />} />
+        <Route path='/warehousing' element={<WarehousingPage />} />
+        <Route path='/order-fulfillment' element={<OrderFulfillmentPage />} />
         <Route path='/fuel' element={<FuelPage />} />
         <Route path='/maintenance' element={<MaintenancePage />} />
         <Route path='/fleet-map' element={<FleetMapPage />} />
