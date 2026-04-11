@@ -1,2 +1,0 @@
-const fs=require('fs'
-const [,start=1,end=200]=process.argv.slice(2

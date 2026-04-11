@@ -17,9 +17,186 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../services/api';
-import { downloadCsv, parseCsv } from '../utils/csv';
 import StatsBanner from '../components/StatsBanner';
+
+function escapeCsv(value) {
+  const text = value ?? '';
+  const str = typeof text === 'string' ? text : String(text);
+  if(/[\r\n",]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+
+  return str;
+}
+
+function downloadCsv({ columns, data, filename }) {
+  const header = columns.map((col) => col.label).join(',');
+  const rows = data.map((item) =>
+    columns
+      .map((col) => {
+        const value = item[col.key];
+        return escapeCsv(col.format ? col.format(value) : value);
+      })
+      .join(',')
+  );
+
+  const csvContent = [header, ...rows].join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+function parseCsvText(text) {
+  const rows = [];
+  let current = '';
+  let row = [];
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    if (inQuotes) {
+      if (char === '"') {
+        if (text[i + 1] === '"') {
+          current += '"';
+          i += 1;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        current += char;
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      inQuotes = true;
+      continue;
+    }
+
+    if (char === ',') {
+      row.push(current);
+      current = '';
+      continue;
+    }
+
+    if (char === '\r') {
+      continue;
+    }
+
+    if (char === '\n') {
+      row.push(current);
+      rows.push(row);
+      row = [];
+      current = '';
+      continue;
+    }
+
+    current += char;
+  }
+
+  if (current || row.length) {
+    row.push(current);
+    rows.push(row);
+  }
+
+  return rows;
+}
+
+function parseCsv(text, columns) {
+  const rows = parseCsvText(text.trim());
+
+  if (!rows.length) {
+    return [];
+  }
+
+  const dataRows = rows.slice(1).map((row) => {
+    const entry = {};
+
+    columns.forEach((column, index) => {
+      const rawValue = row[index] ?? '';
+      const value = column.parse ? column.parse(rawValue) : rawValue;
+      entry[column.key] = value;
+    });
+
+    return entry;
+  });
+
+  return dataRows;
+}
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+
+function unwrapResponse(payload) {
+  if (payload && typeof payload === 'object' && 'data' in payload) {
+    return payload.data;
+  }
+
+  return payload;
+}
+
+async function request(path, options = {}) {
+  const { headers: userHeaders, ...rest } = options;
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: { 'Content-Type': 'application/json', ...userHeaders },
+    ...rest
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || `Request failed: ${response.status}`);
+  }
+
+  const payload = await response.json();
+  return unwrapResponse(payload);
+}
+
+const api = {
+  health: () => request('/health'),
+  getSystem: () => request('/system'),
+  getDashboardSummary: () => request('/dashboard/summary'),
+  getMapVehicles: () => request('/map/vehicles'),
+  getMapTrips: () => request('/map/trips'),
+  assignDriverToVehicle: (payload) => request('/map/assign', { method: 'POST', body: JSON.stringify(payload) }),
+  updateVehicleTracking: (payload) => request('/map/tracking', { method: 'POST', body: JSON.stringify(payload) }),
+  getReports: () => request('/reports'),
+  getSettings: () => request('/settings'),
+
+  getVehicles: () => request('/vehicles'),
+  createVehicle: (payload) => request('/vehicles', { method: 'POST', body: JSON.stringify(payload) }),
+  updateVehicle: (id, payload) => request(`/vehicles/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteVehicle: (id, options = {}) => request(`/vehicles/${id}`, { method: 'DELETE', ...options }),
+
+  getDrivers: () => request('/drivers'),
+  createDriver: (payload) => request('/drivers', { method: 'POST', body: JSON.stringify(payload) }),
+  updateDriver: (id, payload) => request(`/drivers/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteDriver: (id, options = {}) => request(`/drivers/${id}`, { method: 'DELETE', ...options }),
+
+  getTrips: () => request('/trips'),
+  createTrip: (payload) => request('/trips', { method: 'POST', body: JSON.stringify(payload) }),
+  updateTrip: (id, payload) => request(`/trips/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteTrip: (id, options = {}) => request(`/trips/${id}`, { method: 'DELETE', ...options }),
+  getShipments: () => request('/shipments'),
+  createShipment: (payload) => request('/shipments', { method: 'POST', body: JSON.stringify(payload) }),
+  updateShipment: (id, payload) => request(`/shipments/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteShipment: (id, options = {}) => request(`/shipments/${id}`, { method: 'DELETE', ...options }),
+
+  getFuelRecords: () => request('/fuel'),
+  createFuelRecord: (payload) => request('/fuel', { method: 'POST', body: JSON.stringify(payload) }),
+  updateFuelRecord: (id, payload) => request(`/fuel/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteFuelRecord: (id, options = {}) => request(`/fuel/${id}`, { method: 'DELETE', ...options }),
+
+  getMaintenanceRecords: () => request('/maintenance'),
+  createMaintenanceRecord: (payload) => request('/maintenance', { method: 'POST', body: JSON.stringify(payload) }),
+  updateMaintenanceRecord: (id, payload) => request(`/maintenance/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteMaintenanceRecord: (id, options = {}) => request(`/maintenance/${id}`, { method: 'DELETE', ...options }),
+  getRecycleBin: () => request('/recycle-bin'),
+  restoreRecycleBinItem: (id) => request(`/recycle-bin/restore/${id}`, { method: 'POST' }),
+  deleteRecycleBinItem: (id) => request(`/recycle-bin/${id}`, { method: 'DELETE' })
+};
 
 const VEHICLES_CACHE_KEY = 'lfms_vehicles';
 const PAGE_SIZE = 8;

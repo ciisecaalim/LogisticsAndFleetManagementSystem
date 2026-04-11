@@ -10,8 +10,6 @@ import {
   UserRound,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useLanguage } from '../contexts/LanguageContext';
-import { getCountryDefaults, useAppSettings } from '../contexts/AppSettingsContext';
 
 const sections = [
   { id: 'general', label: 'General', description: 'Company details & contact info', icon: Globe },
@@ -81,6 +79,142 @@ const defaultSettings = {
   }
 };
 
+const SETTINGS_STORAGE_KEY = 'lfms_app_settings';
+
+const COUNTRY_PRESETS = {
+  Somalia: {
+    layoutBg: '#64748B',
+    surfaceBg: '#ffffff',
+    sidebarFrom: '#1E293B',
+    sidebarTo: '#64748B',
+    timezone: 'EAT (UTC+3)',
+    language: 'Somali'
+  },
+  Kenya: {
+    layoutBg: '#64748B',
+    surfaceBg: '#ffffff',
+    sidebarFrom: '#1E293B',
+    sidebarTo: '#64748B',
+    timezone: 'EAT (UTC+3)',
+    language: 'English'
+  },
+  Ethiopia: {
+    layoutBg: '#64748B',
+    surfaceBg: '#ffffff',
+    sidebarFrom: '#1E293B',
+    sidebarTo: '#64748B',
+    timezone: 'EAT (UTC+3)',
+    language: 'English'
+  },
+  UAE: {
+    layoutBg: '#64748B',
+    surfaceBg: '#ffffff',
+    sidebarFrom: '#1E293B',
+    sidebarTo: '#64748B',
+    timezone: 'GST (UTC+4)',
+    language: 'Arabic'
+  },
+  Global: {
+    layoutBg: '#64748B',
+    surfaceBg: '#ffffff',
+    sidebarFrom: '#1E293B',
+    sidebarTo: '#64748B',
+    timezone: 'UTC',
+    language: 'English'
+  }
+};
+
+const ACCENT_PRESETS = {
+  emerald: {
+    accent: '#10B981',
+    accentStrong: '#1E293B'
+  },
+  sky: {
+    accent: '#64748B',
+    accentStrong: '#1E293B'
+  },
+  amber: {
+    accent: '#F59E0B',
+    accentStrong: '#1E293B'
+  },
+  rose: {
+    accent: '#F59E0B',
+    accentStrong: '#64748B'
+  }
+};
+
+const defaultAppSettings = {
+  country: 'Somalia',
+  themeMode: 'light',
+  accentTone: 'emerald'
+};
+
+function getCountryDefaults(country) {
+  return COUNTRY_PRESETS[country] || COUNTRY_PRESETS.Somalia;
+}
+
+function getSavedAppSettings() {
+  if (typeof window === 'undefined') {
+    return defaultAppSettings;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (!raw) {
+      return defaultAppSettings;
+    }
+
+    return { ...defaultAppSettings, ...JSON.parse(raw) };
+  } catch {
+    return defaultAppSettings;
+  }
+}
+
+function getSavedLanguage() {
+  if (typeof window === 'undefined') {
+    return 'English';
+  }
+
+  return window.localStorage.getItem('appLanguage') || 'English';
+}
+
+function buildTheme(settings) {
+  const country = COUNTRY_PRESETS[settings.country] || COUNTRY_PRESETS.Somalia;
+  const accent = ACCENT_PRESETS[settings.accentTone] || ACCENT_PRESETS.emerald;
+  const darkMode = settings.themeMode === 'dark';
+
+  return {
+    accent,
+    layoutBg: darkMode ? '#1E293B' : country.layoutBg,
+    surfaceBg: darkMode ? '#1E293B' : country.surfaceBg,
+    cardBg: darkMode ? '#64748B' : '#ffffff',
+    textMain: darkMode ? '#e2e8f0' : '#1e293b',
+    textMuted: darkMode ? '#64748B' : '#64748B',
+    sidebarFrom: darkMode ? '#1E293B' : country.sidebarFrom,
+    sidebarTo: darkMode ? '#64748B' : country.sidebarTo,
+    topbarBg: darkMode ? '#1E293B' : '#ffffff'
+  };
+}
+
+function applyTheme(settings) {
+  if (typeof document === 'undefined') {
+    return;
+  }
+
+  const theme = buildTheme(settings);
+  const root = document.documentElement;
+  root.style.setProperty('--app-accent', theme.accent.accent);
+  root.style.setProperty('--app-accent-strong', theme.accent.accentStrong);
+  root.style.setProperty('--app-layout-bg', theme.layoutBg);
+  root.style.setProperty('--app-surface-bg', theme.surfaceBg);
+  root.style.setProperty('--app-card-bg', theme.cardBg);
+  root.style.setProperty('--app-text-main', theme.textMain);
+  root.style.setProperty('--app-text-muted', theme.textMuted);
+  root.style.setProperty('--app-sidebar-from', theme.sidebarFrom);
+  root.style.setProperty('--app-sidebar-to', theme.sidebarTo);
+  root.style.setProperty('--app-topbar-bg', theme.topbarBg);
+}
+
 const defaultVehicles = [
   { id: 'TRK-12', name: 'TRK-12', alertsEnabled: true },
   { id: 'VAN-24', name: 'VAN-24', alertsEnabled: false },
@@ -135,9 +269,29 @@ export default function SettingsPage() {
   const [vehicles, setVehicles] = useState(defaultVehicles);
   const [toast, setToast] = useState(null);
   const toastTimerRef = useRef(null);
-  const { language, setLanguage } = useLanguage();
-  const { appSettings, setCountry, setThemeMode, setAccentTone } = useAppSettings();
+  const [language, setLanguageState] = useState(getSavedLanguage);
+  const [appSettings, setAppSettings] = useState(getSavedAppSettings);
   const [alertHistoryOpen, setAlertHistoryOpen] = useState(false);
+
+  const setLanguage = (value) => {
+    setLanguageState(value);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('appLanguage', value);
+      window.dispatchEvent(new CustomEvent('lfms-language-changed', { detail: value }));
+    }
+  };
+
+  const setCountry = (country) => {
+    setAppSettings((prev) => ({ ...prev, country }));
+  };
+
+  const setThemeMode = (themeMode) => {
+    setAppSettings((prev) => ({ ...prev, themeMode }));
+  };
+
+  const setAccentTone = (accentTone) => {
+    setAppSettings((prev) => ({ ...prev, accentTone }));
+  };
 
   useEffect(() => {
     return () => {
@@ -146,6 +300,14 @@ export default function SettingsPage() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(appSettings));
+    applyTheme(appSettings);
+  }, [appSettings]);
 
   const showToast = (message, variant = 'success') => {
     setToast({ message, variant });

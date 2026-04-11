@@ -1,9 +1,51 @@
+import { useEffect, useState } from 'react';
 import { Bell, ChevronDown, Globe, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useLanguage } from '../contexts/LanguageContext';
+
+const defaultLanguage = 'English';
+
+const languageResources = {
+  English: {
+    languageLabel: 'Eng (US)',
+    searchPlaceholder: 'Search',
+    adminTitle: 'Admin Profile',
+    adminSubtitle: 'Admin User'
+  },
+  Somali: {
+    languageLabel: 'Somali',
+    searchPlaceholder: 'Raadi',
+    adminTitle: 'Astaanta Maamulaha',
+    adminSubtitle: 'Adeegsade Maamul'
+  },
+  Arabic: {
+    languageLabel: 'عربى',
+    searchPlaceholder: 'بحث',
+    adminTitle: 'ملف المسؤول',
+    adminSubtitle: 'مسؤول'
+  }
+};
 
 export default function TopBar() {
-  const { resources } = useLanguage();
+  const [language, setLanguage] = useState(() => {
+    if (typeof window === 'undefined') {
+      return defaultLanguage;
+    }
+    return window.localStorage.getItem('appLanguage') || defaultLanguage;
+  });
+
+  useEffect(() => {
+    const syncLanguage = () => {
+      const saved = window.localStorage.getItem('appLanguage') || defaultLanguage;
+      setLanguage(saved);
+    };
+
+    window.addEventListener('lfms-language-changed', syncLanguage);
+    return () => {
+      window.removeEventListener('lfms-language-changed', syncLanguage);
+    };
+  }, []);
+
+  const resources = languageResources[language] ?? languageResources[defaultLanguage];
   const {
     languageLabel = 'Eng (US)',
     searchPlaceholder = 'Search',
