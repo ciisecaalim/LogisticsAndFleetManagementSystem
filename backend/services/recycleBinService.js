@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const RecycleBin = require('../model/RecycleBin');
+const Inventory = require('../model/Inventory');
 const Vehicle = require('../model/Vehicles');
 const Driver = require('../model/Drivers');
 const Trip = require('../model/Trips');
@@ -7,6 +8,7 @@ const Fuel = require('../model/fuel');
 const Maintenance = require('../model/Maintenance');
 
 const entityModelMap = {
+  Inventory,
   Vehicle,
   Driver,
   Trip,

@@ -6,6 +6,8 @@ import DriversPage from './pages/DriversPage';
 import FuelPage from './pages/FuelPage';
 import MaintenancePage from './pages/MaintenancePage';
 import FleetMapPage from './pages/FleetMapPage';
+import InventoryPage from './pages/InventoryPage';
+import CategoryPage from './pages/CategoryPage';
 import ReportsPage from './pages/ReportsPage';
 import SettingsPage from './pages/SettingsPage';
 import TripsPage from './pages/TripsPage';
@@ -146,6 +148,8 @@ function App() {
         <Route path='/drivers' element={<DriversPage />} />
         <Route path='/trips' element={<TripsPage />} />
         <Route path='/shipments' element={<ShipmentsPage />} />
+        <Route path='/inventory' element={<InventoryPage />} />
+        <Route path='/category' element={<CategoryPage />} />
         <Route path='/fuel' element={<FuelPage />} />
         <Route path='/maintenance' element={<MaintenancePage />} />
         <Route path='/fleet-map' element={<FleetMapPage />} />

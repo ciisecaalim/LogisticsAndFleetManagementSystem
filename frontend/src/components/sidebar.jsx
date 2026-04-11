@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import {
   Archive,
+  Boxes,
   FileBarChart2,
   Fuel,
   LayoutDashboard,
@@ -17,12 +18,12 @@ import {
 const navItems = [
   // --- CORE OPERATIONS ---
   { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
-  { label: 'Fleet Map', icon: MapPinned, path: '/fleet-map' },
   { label: 'Shipments', icon: Package, path: '/shipments' },
   { label: 'Trips', icon: Route, path: '/trips' },
 
   // --- LOGISTICS & INVENTORY ---
   { label: 'Inventory', icon: Archive, path: '/inventory' },
+  { label: 'Category', icon: Boxes, path: '/category' },
   { label: 'Warehousing', icon: Warehouse, path: '/warehousing' },
   { label: 'Order Fulfillment', icon: Package, path: '/order-fulfillment' },
 
@@ -34,6 +35,8 @@ const navItems = [
 
   // --- SYSTEM & ANALYTICS ---
   { label: 'Reports', icon: FileBarChart2, path: '/reports' },
+  { label: 'Fleet Map', icon: MapPinned, path: '/fleet-map' },
+
   { label: 'Settings', icon: Settings, path: '/settings' }
   
 ];

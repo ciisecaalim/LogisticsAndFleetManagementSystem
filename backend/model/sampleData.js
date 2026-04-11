@@ -1,4 +1,12 @@
 module.exports = {
+  inventory: [
+    { name: 'Brake Pads', sku: 'BP-4402', category: 'Spare Parts', quantity: 126, image: 'https://images.unsplash.com/photo-1487754180451-c456f719a1fc?auto=format&fit=crop&w=120&q=80' },
+    { name: 'Engine Oil 5W-30', sku: 'EO-530-20L', category: 'Consumables', quantity: 42, image: 'https://images.unsplash.com/photo-1625047509248-ec889cbff17f?auto=format&fit=crop&w=120&q=80' },
+    { name: 'All-Season Tires', sku: 'TR-17-AS', category: 'Spare Parts', quantity: 11, image: 'https://images.unsplash.com/photo-1613145997970-db84a7975fbb?auto=format&fit=crop&w=120&q=80' },
+    { name: 'Air Filters', sku: 'AF-9001', category: 'Consumables', quantity: 0, image: 'https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?auto=format&fit=crop&w=120&q=80' },
+    { name: 'Battery 12V', sku: 'BAT-12-75', category: 'Electrical', quantity: 18, image: 'https://images.unsplash.com/photo-1600891964599-f61ba0e24092?auto=format&fit=crop&w=120&q=80' },
+    { name: 'Coolant', sku: 'CLT-50-RED', category: 'Consumables', quantity: 67, image: 'https://images.unsplash.com/photo-1581090700227-1e8f5b65e047?auto=format&fit=crop&w=120&q=80' }
+  ],
   vehicles: [
     { vehicleId: 'VH-1001', trackerId: 'TRK-1001', plateNumber: 'ABC-1234', model: 'Transit', brand: 'Ford', type: 'Van', year: 2022, status: 'Assigned', assignedDriver: 'John Smith', assignedDriverId: 'DRV-1001', lat: 40.7589, lng: -73.9851 },
     { vehicleId: 'VH-1002', trackerId: 'TRK-1002', plateNumber: 'XYZ-5678', model: 'Sprinter', brand: 'Mercedes', type: 'Van', year: 2023, status: 'Assigned', assignedDriver: 'Sarah Johnson', assignedDriverId: 'DRV-1002', lat: 40.6782, lng: -73.9442 },
